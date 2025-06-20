@@ -40,11 +40,11 @@ func InitRouter() *chi.Mux {
 
 func initMetricCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		metricName := chi.URLParam(r, "metricName")
-		metricValue := chi.URLParam(r, "metricValue")
+		name := chi.URLParam(r, string(MetricName))
+		value := chi.URLParam(r, string(MetricValue))
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "metricName", metricName)
-		ctx = context.WithValue(ctx, "metricValue", metricValue)
+		ctx = context.WithValue(ctx, MetricName, name)
+		ctx = context.WithValue(ctx, MetricValue, value)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
