@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/GoLessons/go-musthave-metrics/internal/server"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"net/http"
 )
 
@@ -12,5 +12,5 @@ func main() {
 }
 
 func run() error {
-	return http.ListenAndServe(`:8080`, server.InitRouter())
+	return http.ListenAndServe(`:8080`, router.InitRouter())
 }

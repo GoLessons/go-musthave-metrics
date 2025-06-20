@@ -1,8 +1,9 @@
-package server
+package router
 
 import (
 	"context"
 	common "github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/handler"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
@@ -40,11 +41,11 @@ func InitRouter() *chi.Mux {
 
 func initMetricCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		name := chi.URLParam(r, string(MetricName))
-		value := chi.URLParam(r, string(MetricValue))
+		name := chi.URLParam(r, string(server.MetricName))
+		value := chi.URLParam(r, string(server.MetricValue))
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, MetricName, name)
-		ctx = context.WithValue(ctx, MetricValue, value)
+		ctx = context.WithValue(ctx, server.MetricName, name)
+		ctx = context.WithValue(ctx, server.MetricValue, value)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

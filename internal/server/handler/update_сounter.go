@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/pkg"
 	"net/http"
@@ -21,7 +22,7 @@ func NewUpdateCounter(storage pkg.Storage[model.Counter]) *UpdateCounter {
 func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	metricName, ok := ctx.Value("metricName").(string)
+	metricName, ok := ctx.Value(server.MetricName).(string)
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -33,7 +34,7 @@ func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metric = *model.NewCounter(metricName)
 	}
 
-	metricValueRaw, ok := ctx.Value("metricValue").(string)
+	metricValueRaw, ok := ctx.Value(server.MetricValue).(string)
 	if !ok {
 		http.Error(w, "Metric not defined", http.StatusBadRequest)
 		return
