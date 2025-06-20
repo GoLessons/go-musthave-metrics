@@ -1,0 +1,58 @@
+package handler
+
+import (
+	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg"
+	"net/http"
+	"strconv"
+)
+
+type UpdateCounter struct {
+	storage pkg.Storage[model.Counter]
+}
+
+func NewUpdateCounter(storage pkg.Storage[model.Counter]) *UpdateCounter {
+	return &UpdateCounter{
+		storage: storage,
+	}
+}
+
+func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	metricName, ok := ctx.Value("metricName").(string)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	var metric model.Counter
+
+	metric, err := h.storage.Get(metricName)
+	if err != nil {
+		metric = *model.NewCounter(metricName)
+	}
+
+	metricValueRaw, ok := ctx.Value("metricValue").(string)
+	if !ok {
+		http.Error(w, "Metric not defined", http.StatusBadRequest)
+		return
+	}
+	metricValue, err := strconv.ParseInt(metricValueRaw, 10, 64)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Metric value incorrect (%s)", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	w.Write([]byte(fmt.Sprintf("Counter old value: %s = %d\n", metricName, metric.Value())))
+
+	metric.Inc(metricValue)
+
+	err = h.storage.Set(metricName, metric)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+
+	w.Write([]byte(fmt.Sprintf("Update counter: %s = %d + %d\n", metricName, metric.Value(), metricValue)))
+}

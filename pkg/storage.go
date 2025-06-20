@@ -1,7 +1,7 @@
 package pkg
 
-type Storage interface {
-	Set(key []byte, data []byte) error
-	Get(key []byte) ([]byte, error)
-	Unset(key []byte) error
+type Storage[T any] interface {
+	Set(key string, value T) error
+	Get(key string) (T, error)
+	Unset(key string) error
 }
