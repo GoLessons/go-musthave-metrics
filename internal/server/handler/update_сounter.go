@@ -28,7 +28,6 @@ func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var metric model.Counter
-
 	metric, err := h.storage.Get(metricName)
 	if err != nil {
 		metric = *model.NewCounter(metricName)
@@ -45,7 +44,7 @@ func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Counter old value: %s = %d\n", metricName, metric.Value())))
+	w.Write([]byte(fmt.Sprintf("Update counter: %s = %d + %d\n", metricName, metric.Value(), metricValue)))
 
 	metric.Inc(metricValue)
 
@@ -54,5 +53,5 @@ func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 
-	w.Write([]byte(fmt.Sprintf("Update counter: %s = %d + %d\n", metricName, metric.Value(), metricValue)))
+	w.Write([]byte(fmt.Sprintf("Counter new value: %s = %d\n", metricName, metric.Value())))
 }

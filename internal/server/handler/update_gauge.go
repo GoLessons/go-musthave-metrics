@@ -28,7 +28,6 @@ func (h UpdateGauge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var metric model.Gauge
-
 	metric, err := h.storage.Get(metricName)
 	if err != nil {
 		metric = *model.NewGauge(metricName)
@@ -45,9 +44,14 @@ func (h UpdateGauge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Gauge old value: %s = %d\n", metricName, metric.Value())))
+	w.Write([]byte(fmt.Sprintf("Update old gauge: %s = %f\n", metricName, metric.Value())))
 
 	metric.Set(metricValue)
 
-	w.Write([]byte(fmt.Sprintf("Update gauge: %s = %d\n", metricName, metric.Value(), metricValue)))
+	err = h.storage.Set(metricName, metric)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+
+	w.Write([]byte(fmt.Sprintf("Gauge new value: %s = %f\n", metricName, metric.Value())))
 }

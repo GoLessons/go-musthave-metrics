@@ -30,11 +30,11 @@ func NewCounter(name string) *Counter {
 	}
 }
 
-func (m Counter) Inc(val int64) {
+func (m *Counter) Inc(val int64) {
 	m.value += val
 }
 
-func (m Counter) Value() int64 {
+func (m *Counter) Value() int64 {
 	return m.value
 }
 
@@ -53,10 +53,10 @@ func NewGauge(name string) *Gauge {
 	}
 }
 
-func (m Gauge) Set(value float64) {
+func (m *Gauge) Set(value float64) {
 	m.value = value
 }
 
-func (m Gauge) Value() float64 {
+func (m *Gauge) Value() float64 {
 	return m.value
 }
