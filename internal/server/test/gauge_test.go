@@ -12,6 +12,7 @@ func TestGauge(t *testing.T) {
 
 	for _, test := range providerTestGauge() {
 		resp, err := I.DoRequest(test.method, test.path, nil)
+		defer resp.Close()
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, test.status, resp.StatusCode)
