@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// Получаем информацию об аллокациях
-	fmt.Printf("Общее выделенное пространство памяти (байты): %d\n", val)
+	fmt.Printf("Общее выделенное пространство памяти (байты): %f\n", val)
 	/*fmt.Printf("Память в хипе (байты): %d\n", memStats.HeapAlloc)
 	fmt.Printf("Количество сборок мусора: %d\n", memStats.NumGC)
 	fmt.Printf("Высвобожденная память (байты): %d\n", memStats.HeapReleased)*/
