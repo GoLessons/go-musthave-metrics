@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 )
@@ -12,9 +13,11 @@ func TestCounter(t *testing.T) {
 
 	for _, test := range providerTestCounter() {
 		resp, err := I.DoRequest(test.method, test.path, nil)
-		//defer resp.Close()
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		defer resp.Body.Close()
+
 		assert.Equal(t, test.status, resp.StatusCode)
 	}
 }
