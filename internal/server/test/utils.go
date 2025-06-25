@@ -1,5 +1,3 @@
-//go:build testmode
-
 package test
 
 import (
