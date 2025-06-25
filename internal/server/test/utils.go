@@ -8,7 +8,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 )
 
 type tester struct {
@@ -25,14 +24,15 @@ func NewTester() *tester {
 }
 
 func (tester *tester) Post(path string, body interface{}) (*http.Response, error) {
-	return tester.doRequest(http.MethodPost, path, body)
+	return tester.DoRequest(http.MethodPost, path, body)
 }
 
 func (tester *tester) Get(path string) (*http.Response, error) {
-	return tester.doRequest(http.MethodGet, path, nil)
+
+	return tester.DoRequest(http.MethodGet, path, nil)
 }
 
-func (tester *tester) doRequest(method string, endpoint string, body interface{}) (resp *http.Response, err error) {
+func (tester *tester) DoRequest(method string, endpoint string, body interface{}) (resp *http.Response, err error) {
 	var data bytes.Buffer
 	if s, ok := body.(string); ok {
 		data = *bytes.NewBuffer([]byte(s))
@@ -64,8 +64,4 @@ func (tester *tester) Shutdown() {
 		}
 	}
 	tester.responses = []*http.Response{}
-}
-
-func (tester *tester) Test(t *testing.T) {
-	t.Log("Test!")
 }

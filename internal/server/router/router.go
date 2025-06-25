@@ -22,7 +22,7 @@ func InitRouter() *chi.Mux {
 
 	r := chi.NewRouter()
 	for metricType, metricHandler := range routes {
-		r.Route("/update/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}/{metricValue:[a-z0-9\\.]+}", func(r chi.Router) {
+		r.Route("/update/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}", func(r chi.Router) {
 			r.Use(initMetricCtx)
 			r.Get("/", metricHandler.ServeHTTP)
 			r.Post("/", metricHandler.ServeHTTP)
