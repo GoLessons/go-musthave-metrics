@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/pkg"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
 	"net/http"
 	"strconv"
 )
 
 type UpdateCounter struct {
-	storage pkg.Storage[model.Counter]
+	storage storage.Storage[model.Counter]
 }
 
-func NewUpdateCounter(storage pkg.Storage[model.Counter]) *UpdateCounter {
+func NewUpdateCounter(storage storage.Storage[model.Counter]) *UpdateCounter {
 	return &UpdateCounter{
 		storage: storage,
 	}

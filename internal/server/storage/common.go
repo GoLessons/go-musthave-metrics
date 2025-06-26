@@ -1,4 +1,4 @@
-package pkg
+package storage
 
 type Storage[T any] interface {
 	Set(key string, value T) error

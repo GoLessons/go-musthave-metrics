@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/pkg"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
 	"net/http"
 	"strconv"
 )
 
 type UpdateGauge struct {
-	storage pkg.Storage[model.Gauge]
+	storage storage.Storage[model.Gauge]
 }
 
-func NewUpdateGauge(storage pkg.Storage[model.Gauge]) *UpdateGauge {
+func NewUpdateGauge(storage storage.Storage[model.Gauge]) *UpdateGauge {
 	return &UpdateGauge{
 		storage: storage,
 	}
