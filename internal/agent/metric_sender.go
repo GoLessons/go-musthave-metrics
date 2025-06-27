@@ -59,7 +59,7 @@ func (sender *sender) convertMetricData(metricName string, value interface{}) (*
 		metricType = "gauge"
 		strVal = fmt.Sprintf("%f", value)
 	} else {
-		return nil, fmt.Errorf("unsupported metric: type := %s value, := %s", metricType, value)
+		return nil, fmt.Errorf("unsupported metric: type := %s, value := %s", metricType, value)
 	}
 
 	return &metricData{

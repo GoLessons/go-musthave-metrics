@@ -31,3 +31,7 @@ func (s *MemStorage[T]) Unset(key string) error {
 	delete(s.container, key)
 	return nil
 }
+
+func (s *MemStorage[T]) GetAll() (map[string]T, error) {
+	return s.container, nil
+}

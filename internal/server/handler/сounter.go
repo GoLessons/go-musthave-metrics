@@ -9,17 +9,17 @@ import (
 	"strconv"
 )
 
-type UpdateCounter struct {
+type CounterController struct {
 	storage storage.Storage[model.Counter]
 }
 
-func NewUpdateCounter(storage storage.Storage[model.Counter]) *UpdateCounter {
-	return &UpdateCounter{
+func NewCounterController(storage storage.Storage[model.Counter]) *CounterController {
+	return &CounterController{
 		storage: storage,
 	}
 }
 
-func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h CounterController) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	metricName, ok := ctx.Value(server.MetricName).(string)
@@ -45,14 +45,32 @@ func (h UpdateCounter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Update counter: %s = %d + %d\n", metricName, metric.Value(), metricValue)))
-
 	metric.Inc(metricValue)
 
 	err = h.storage.Set(metricName, metric)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+}
 
-	w.Write([]byte(fmt.Sprintf("Counter new value: %s = %d\n", metricName, metric.Value())))
+func (h CounterController) Get(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	metricName, ok := ctx.Value(server.MetricName).(string)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	metric, err := h.storage.Get(metricName)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	_, err = w.Write([]byte(fmt.Sprintf("%d\n", metric.Value())))
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }

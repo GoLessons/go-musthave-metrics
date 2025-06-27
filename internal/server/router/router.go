@@ -15,25 +15,38 @@ var storageCounter = storage.NewMemStorage[model.Counter]()
 var storageGauge = storage.NewMemStorage[model.Gauge]()
 
 func InitRouter() *chi.Mux {
-	routes := map[string]http.Handler{
-		common.Counter: handler.NewUpdateCounter(storageCounter),
-		common.Gauge:   handler.NewUpdateGauge(storageGauge),
+	routes := map[string]handler.MetricController{
+		common.Counter: handler.NewCounterController(storageCounter),
+		common.Gauge:   handler.NewGaugeController(storageGauge),
 	}
 
 	r := chi.NewRouter()
-	for metricType, metricHandler := range routes {
+	for metricType, metricController := range routes {
 		r.Route("/update/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}", func(r chi.Router) {
 			r.Use(initMetricCtx)
-			r.Get("/", metricHandler.ServeHTTP)
-			r.Post("/", metricHandler.ServeHTTP)
+			r.Post("/", metricController.Update)
+			r.Get("/", metricController.Update)
+		})
+		r.Route("/value/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
+			r.Use(initMetricCtx)
+			r.Get("/", metricController.Get)
 		})
 	}
+
 	r.Post(
 		"/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:[a-z0-9\\.]+}",
 		func(w http.ResponseWriter, r *http.Request) {
 			metricType := chi.URLParam(r, "metricType")
 			http.Error(w, "Wrong metric type: "+metricType, http.StatusBadRequest)
 		},
+	)
+
+	r.Get(
+		"/",
+		handler.NewListController(
+			storageCounter,
+			storageGauge,
+		).Get,
 	)
 
 	return r

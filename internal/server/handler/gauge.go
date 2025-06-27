@@ -9,17 +9,17 @@ import (
 	"strconv"
 )
 
-type UpdateGauge struct {
+type GaugeController struct {
 	storage storage.Storage[model.Gauge]
 }
 
-func NewUpdateGauge(storage storage.Storage[model.Gauge]) *UpdateGauge {
-	return &UpdateGauge{
+func NewGaugeController(storage storage.Storage[model.Gauge]) *GaugeController {
+	return &GaugeController{
 		storage: storage,
 	}
 }
 
-func (h UpdateGauge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h GaugeController) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	metricName, ok := ctx.Value(server.MetricName).(string)
@@ -45,14 +45,32 @@ func (h UpdateGauge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Update old gauge: %s = %f\n", metricName, metric.Value())))
-
 	metric.Set(metricValue)
 
 	err = h.storage.Set(metricName, metric)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+}
 
-	w.Write([]byte(fmt.Sprintf("Gauge new value: %s = %f\n", metricName, metric.Value())))
+func (h GaugeController) Get(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	metricName, ok := ctx.Value(server.MetricName).(string)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	metric, err := h.storage.Get(metricName)
+	if err != nil {
+		http.Error(w, "Metric not found: "+metricName, http.StatusNotFound)
+		return
+	}
+
+	_, err = w.Write([]byte(fmt.Sprintf("%f\n", metric.Value())))
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 }
