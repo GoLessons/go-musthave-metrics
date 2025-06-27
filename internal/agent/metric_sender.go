@@ -43,7 +43,7 @@ func (sender *sender) Send(metricName string, value interface{}) (err error) {
 		SetPathParam("metricVal", metric.value).
 		Post("/update/{metricType}/{metricName}/{metricVal}")
 	if err != nil {
-		return fmt.Errorf("can't send metric: %s = %s\nprevious: %w\n", metric.name, metric.value, err)
+		return fmt.Errorf("can't send metric: %s = %s\nprevious: %w", metric.name, metric.value, err)
 	}
 
 	fmt.Printf("metric was sent succsesfully: %s = %s\n", metric.name, metric.value)
