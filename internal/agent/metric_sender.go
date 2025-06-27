@@ -37,7 +37,7 @@ func (sender *sender) Send(metricName string, value interface{}) (err error) {
 		return err
 	}
 
-	_, err = client.R().
+	resp, err := client.R().
 		SetPathParam("metricName", metric.name).
 		SetPathParam("metricType", metric.metricType).
 		SetPathParam("metricVal", metric.value).
@@ -46,20 +46,25 @@ func (sender *sender) Send(metricName string, value interface{}) (err error) {
 		return fmt.Errorf("can't send metric: %s = %s\nprevious: %w", metric.name, metric.value, err)
 	}
 
+	if resp.IsError() {
+		return fmt.Errorf("can't send metric: %s = %s\nresponse: %s", metric.name, metric.value, resp.String())
+	}
+
 	fmt.Printf("metric was sent succsesfully: %s = %s\n", metric.name, metric.value)
 	return nil
 }
 
-func (sender *sender) convertMetricData(metricName string, value interface{}) (*metricData, error) {
+func (sender *sender) convertMetricData(metricName string, metricValue interface{}) (*metricData, error) {
 	var metricType, strVal string
-	if _, ok := value.(int64); ok {
+	switch v := metricValue.(type) {
+	case int, int8, int16, int32, int64, CounterValue:
+		strVal = fmt.Sprintf("%d", v)
 		metricType = "counter"
-		strVal = fmt.Sprintf("%d", value)
-	} else if _, ok := value.(float64); ok {
+	case float32, float64, GaugeValue:
+		strVal = fmt.Sprintf("%f", v)
 		metricType = "gauge"
-		strVal = fmt.Sprintf("%f", value)
-	} else {
-		return nil, fmt.Errorf("unsupported metric: type := %s, value := %s", metricType, value)
+	default:
+		return nil, fmt.Errorf("unsupported metric: value := %s of %v", metricValue, v)
 	}
 
 	return &metricData{

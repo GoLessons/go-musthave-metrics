@@ -28,7 +28,7 @@ func main() {
 		}
 
 		for _, metricName := range memStatReader.SupportedMetrics() {
-			metricVal, ok := memStatReader.Get("Alloc")
+			metricVal, ok := memStatReader.Get(metricName)
 			if !ok {
 				fmt.Println("Cannot read metric: " + metricName)
 			}
@@ -53,10 +53,17 @@ func main() {
 			fmt.Println(err)
 		}
 
-		//fmt.Printf("%s: %f\n", "RandomValue", randomValue)
-		//fmt.Printf("%s: %d\n", "PollCount", poolCounter.Count())
-
 		if isNeedSend {
+			err := sender.Send("RandomValue", randomValue)
+			if err != nil {
+				fmt.Printf("Cannot send metric: %s\n%v", "RandomValue", err)
+			}
+
+			err = sender.Send("PollCount", poolCounter.Count())
+			if err != nil {
+				fmt.Printf("Cannot send metric: %s\n%v", "PollCount", err)
+			}
+
 			lastLogTime = time.Now()
 		}
 
