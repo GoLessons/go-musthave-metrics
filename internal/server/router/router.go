@@ -2,11 +2,11 @@ package router
 
 import (
 	"context"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	common "github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/handler"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )

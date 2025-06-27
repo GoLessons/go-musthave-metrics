@@ -2,34 +2,64 @@ package main
 
 import (
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
-	"github.com/GoLessons/go-musthave-metrics/pkg"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"time"
 )
 
 func main() {
-	//var memStats runtime.MemStats
-	var gaugeStorage pkg.Storage[float64]
-	gaugeStorage = storage.NewMemStorage[float64]()
+	gaugeStorage := storage.NewMemStorage[agent.GaugeValue]()
+	counterStorage := storage.NewMemStorage[agent.CounterValue]()
+	memStatReader := agent.NewMemStatsReader()
+	poolCounter := agent.NewPollCounter(0)
+	randomizer := agent.NewRandomizer()
+	dumpInterval := 10 * time.Second
+	lastLogTime := time.Now()
+	sender := agent.NewMetricSender()
+	defer sender.Close()
 
-	//runtime.ReadMemStats(&memStats)
+	for {
+		memStatReader.Refresh()
+		poolCounter.Increment()
+		isNeedSend := time.Since(lastLogTime) >= dumpInterval
+		err := counterStorage.Set("PollCount", poolCounter.Count())
+		if err != nil {
+			fmt.Println(err)
+		}
 
-	memStatReader := reader.NewMemStatsReader()
-	memStatReader.Refresh()
+		for _, metricName := range memStatReader.SupportedMetrics() {
+			metricVal, ok := memStatReader.Get("Alloc")
+			if !ok {
+				fmt.Println("Cannot read metric: " + metricName)
+			}
 
-	val, ok := memStatReader.Get("Alloc")
-	if !ok {
-		fmt.Println("Cannot read metric: " + "Alloc")
+			err := gaugeStorage.Set(metricName, agent.GaugeValue(metricVal))
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			if isNeedSend {
+				err := sender.Send(metricName, metricVal)
+				if err != nil {
+					fmt.Printf("Cannot send metric: %s\n%v", metricName, err)
+				}
+			}
+		}
+
+		randomValue := randomizer.Randomize()
+
+		err = gaugeStorage.Set("RandomValue", randomValue)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		//fmt.Printf("%s: %f\n", "RandomValue", randomValue)
+		//fmt.Printf("%s: %d\n", "PollCount", poolCounter.Count())
+
+		if isNeedSend {
+			lastLogTime = time.Now()
+		}
+
+		time.Sleep(time.Second * 2)
 	}
-
-	err := gaugeStorage.Set("Alloc", val)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	// Получаем информацию об аллокациях
-	fmt.Printf("Общее выделенное пространство памяти (байты): %f\n", val)
-	/*fmt.Printf("Память в хипе (байты): %d\n", memStats.HeapAlloc)
-	fmt.Printf("Количество сборок мусора: %d\n", memStats.NumGC)
-	fmt.Printf("Высвобожденная память (байты): %d\n", memStats.HeapReleased)*/
 }

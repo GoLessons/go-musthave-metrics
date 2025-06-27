@@ -2,9 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/storage"
 	"net/http"
 	"strconv"
 )

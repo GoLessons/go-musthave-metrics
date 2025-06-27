@@ -11,7 +11,6 @@ import (
 type tester struct {
 	testServer *httptest.Server
 	httpClient *http.Client
-	responses  []*http.Response
 }
 
 func NewTester() *tester {
@@ -49,17 +48,9 @@ func (tester *tester) DoRequest(method string, endpoint string, body interface{}
 	httpClient := tester.httpClient
 	resp, err = httpClient.Do(req)
 
-	tester.responses = append(tester.responses, resp)
-
 	return resp, err
 }
 
 func (tester *tester) Shutdown() {
 	defer tester.testServer.Close()
-	for _, resp := range tester.responses {
-		if resp != nil {
-			defer resp.Body.Close()
-		}
-	}
-	tester.responses = []*http.Response{}
 }

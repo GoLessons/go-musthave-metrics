@@ -1,4 +1,4 @@
-package reader
+package agent
 
 import "runtime"
 
@@ -44,6 +44,10 @@ func NewMemStatsReader[T float64]() *memStatsReader[T] {
 }
 
 func (r *memStatsReader[T]) Refresh() {
+	if r.memStats == nil {
+		r.memStats = &runtime.MemStats{}
+	}
+
 	runtime.ReadMemStats(r.memStats)
 }
 
@@ -52,5 +56,19 @@ func (r *memStatsReader[T]) Get(name string) (float64, bool) {
 		r.Refresh()
 	}
 
-	return r.runtimeMetrics[name](r.memStats), true
+	getMetric, ok := r.runtimeMetrics[name]
+	if !ok {
+		return 0, false
+	}
+
+	return getMetric(r.memStats), true
+}
+
+func (r *memStatsReader[T]) SupportedMetrics() []string {
+	keys := []string{}
+	for key := range r.runtimeMetrics {
+		keys = append(keys, key)
+	}
+
+	return keys
 }
