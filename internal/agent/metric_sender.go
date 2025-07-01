@@ -9,9 +9,9 @@ type sender struct {
 	client *resty.Client
 }
 
-func NewMetricSender() *sender {
+func NewMetricSender(address string) *sender {
 	client := resty.New()
-	client.SetBaseURL("http://localhost:8080").
+	client.SetBaseURL(address).
 		SetHeader("Content-Type", "text/plain")
 
 	return &sender{
