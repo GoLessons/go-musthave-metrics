@@ -9,7 +9,6 @@ type MemStorage[T any] struct {
 }
 
 func NewMemStorage[T any]() *MemStorage[T] {
-
 	return &MemStorage[T]{container: make(map[string]T)}
 }
 

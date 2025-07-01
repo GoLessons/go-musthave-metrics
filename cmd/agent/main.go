@@ -5,6 +5,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/spf13/cobra"
+	"os"
 	"time"
 )
 
@@ -14,8 +15,18 @@ var (
 	pollInterval   int
 )
 
+func init() {
+	rootCmd.Flags().StringVarP(&address, "address", "a", "http://localhost:8080", "HTTP server address")
+	rootCmd.Flags().IntVarP(&reportInterval, "report", "r", 10, "Report interval in seconds")
+	rootCmd.Flags().IntVarP(&pollInterval, "poll", "p", 2, "Poll interval in seconds")
+
+	// Запрещаем использование неизвестных флагов
+	rootCmd.FParseErrWhitelist.UnknownFlags = false
+}
+
 var rootCmd = &cobra.Command{
-	Use: "metrics",
+	Use:   "agent",
+	Short: "Metrics agent for collecting and sending metrics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if reportInterval <= 0 {
 			return fmt.Errorf("report interval must be positive, got %d", reportInterval)
@@ -24,87 +35,31 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("poll interval must be positive, got %d", pollInterval)
 		}
 
-		metricCommand()
+		run()
 		return nil
 	},
 }
 
-func init() {
-	rootCmd.Flags().StringVarP(&address, "address", "a", "localhost:8080", "Metric server address")
-	rootCmd.Flags().IntVarP(&reportInterval, "report", "r", 10, "Report interval in seconds")
-	rootCmd.Flags().IntVarP(&pollInterval, "poll", "p", 2, "Poll interval in seconds")
-
-	rootCmd.FParseErrWhitelist.UnknownFlags = false
+func run() {
+	metricCollector := MetricCollectorFactory(address, reportInterval, pollInterval)
+	defer metricCollector.Close()
+	metricCollector.CollectAndSendMetrics()
 }
 
 func main() {
-	err := rootCmd.Execute()
-	if err != nil {
-		fmt.Printf("agent error: %v\n", err)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
-func metricCommand() {
-	gaugeStorage := storage.NewMemStorage[agent.GaugeValue]()
-	counterStorage := storage.NewMemStorage[agent.CounterValue]()
-	memStatReader := agent.NewMemStatsReader()
-	poolCounter := agent.NewPollCounter(0)
-	randomizer := agent.NewRandomizer()
-	dumpInterval := time.Duration(reportInterval) * time.Second
-	pollDuration := time.Duration(pollInterval) * time.Second
-	lastLogTime := time.Now()
-	sender := agent.NewMetricSender(address)
-	defer sender.Close()
-
-	for {
-		memStatReader.Refresh()
-		poolCounter.Increment()
-		isNeedSend := time.Since(lastLogTime) >= dumpInterval
-		err := counterStorage.Set("PollCount", poolCounter.Count())
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		for _, metricName := range memStatReader.SupportedMetrics() {
-			metricVal, ok := memStatReader.Get(metricName)
-			if !ok {
-				fmt.Println("Cannot read metric: " + metricName)
-			}
-
-			err := gaugeStorage.Set(metricName, agent.GaugeValue(metricVal))
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			if isNeedSend {
-				err := sender.Send(metricName, metricVal)
-				if err != nil {
-					fmt.Printf("Cannot send metric: %s\n%v", metricName, err)
-				}
-			}
-		}
-
-		randomValue := randomizer.Randomize()
-
-		err = gaugeStorage.Set("RandomValue", randomValue)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if isNeedSend {
-			err := sender.Send("RandomValue", randomValue)
-			if err != nil {
-				fmt.Printf("Cannot send metric: %s\n%v", "RandomValue", err)
-			}
-
-			err = sender.Send("PollCount", poolCounter.Count())
-			if err != nil {
-				fmt.Printf("Cannot send metric: %s\n%v", "PollCount", err)
-			}
-
-			lastLogTime = time.Now()
-		}
-
-		time.Sleep(pollDuration)
-	}
+func MetricCollectorFactory(address string, reportInterval, pollInterval int) *agent.MetricCollector {
+	return agent.NewMetricCollector(
+		storage.NewMemStorage[agent.GaugeValue](),
+		storage.NewMemStorage[agent.CounterValue](),
+		agent.NewMemStatsReader(),
+		agent.NewMetricSender(address),
+		time.Duration(reportInterval)*time.Second,
+		time.Duration(pollInterval)*time.Second,
+	)
 }
