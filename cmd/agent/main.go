@@ -30,7 +30,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&address, "address", "a", "http://localhost:8080", "Metric server address")
+	rootCmd.Flags().StringVarP(&address, "address", "a", "localhost:8080", "Metric server address")
 	rootCmd.Flags().IntVarP(&reportInterval, "report", "r", 10, "Report interval in seconds")
 	rootCmd.Flags().IntVarP(&pollInterval, "poll", "p", 2, "Poll interval in seconds")
 

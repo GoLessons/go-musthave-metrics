@@ -11,7 +11,7 @@ type sender struct {
 
 func NewMetricSender(address string) *sender {
 	client := resty.New()
-	client.SetBaseURL(address).
+	client.SetBaseURL("http://"+address).
 		SetHeader("Content-Type", "text/plain")
 
 	return &sender{
