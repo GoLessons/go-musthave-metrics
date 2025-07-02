@@ -14,6 +14,10 @@ func (p *pollCounter[T]) Increment() {
 	p.count++
 }
 
+func (p *pollCounter[T]) Reset() {
+	p.count = 0
+}
+
 func (p *pollCounter[T]) Count() CounterValue {
 	return CounterValue(p.count)
 }

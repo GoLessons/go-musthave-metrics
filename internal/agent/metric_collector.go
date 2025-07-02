@@ -79,6 +79,7 @@ func (mc *MetricCollector) CollectAndSendMetrics() {
 			}
 
 			mc.lastLogTime = time.Now()
+			mc.pollCounter.Reset()
 		}
 
 		time.Sleep(mc.pollDuration)
