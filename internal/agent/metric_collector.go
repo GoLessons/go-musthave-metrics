@@ -51,60 +51,77 @@ func (mc *MetricCollector) Close() {
 
 func (mc *MetricCollector) CollectAndSendMetrics() {
 	for {
-		isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
-
-		mc.handleMemStats(isNeedSend)
-		mc.pollCounter.Increment()
-
-		err := mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
+		err := mc.handle()
 		if err != nil {
-			fmt.Println(err)
-		}
-
-		randomValue := mc.randomizer.Randomize()
-		err = mc.gaugeStorage.Set(RandomValue, randomValue)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if isNeedSend {
-			err := mc.sender.Send(RandomValue, randomValue)
-			if err != nil {
-				fmt.Printf("Cannot send metric: %s\n%v", RandomValue, err)
-			}
-
-			err = mc.sender.Send(PollCount, mc.pollCounter.Count())
-			if err != nil {
-				fmt.Printf("Cannot send metric: %s\n%v", PollCount, err)
-			}
-
-			mc.lastLogTime = time.Now()
-			mc.pollCounter.Reset()
+			fmt.Printf("metrics handling failed: %v\n", err)
 		}
 
 		time.Sleep(mc.pollDuration)
 	}
 }
 
-func (mc *MetricCollector) handleMemStats(isNeedSend bool) {
+func (mc *MetricCollector) handle() error {
+	isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
+
+	err := mc.handleMemStats(isNeedSend)
+	if err != nil {
+		return fmt.Errorf("can't handle metrics: %w", err)
+	}
+
+	mc.pollCounter.Increment()
+
+	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
+	}
+
+	randomValue := mc.randomizer.Randomize()
+	err = mc.gaugeStorage.Set(RandomValue, randomValue)
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
+	}
+
+	if isNeedSend {
+		err := mc.sender.Send(RandomValue, randomValue)
+		if err != nil {
+			return fmt.Errorf("Cannot send metric: %s\n%w", RandomValue, err)
+		}
+
+		err = mc.sender.Send(PollCount, mc.pollCounter.Count())
+		if err != nil {
+			return fmt.Errorf("Cannot send metric: %s\n%w", PollCount, err)
+		}
+
+		mc.lastLogTime = time.Now()
+
+		// если все метрики успешно отправлены серверу, сбрасываем счётчик
+		mc.pollCounter.Reset()
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 	mc.memStatReader.Refresh()
 
 	for _, metricName := range mc.memStatReader.SupportedMetrics() {
 		metricVal, ok := mc.memStatReader.Get(metricName)
 		if !ok {
-			fmt.Println("Cannot read metric: " + metricName)
+			return fmt.Errorf("Cannot read metric: " + metricName)
 		}
 
 		err := mc.gaugeStorage.Set(metricName, GaugeValue(metricVal))
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 
 		if isNeedSend {
 			err := mc.sender.Send(metricName, metricVal)
 			if err != nil {
-				fmt.Printf("Cannot send metric: %s\n%v", metricName, err)
+				return fmt.Errorf("Cannot send metric: %s\n%v", metricName, err)
 			}
 		}
 	}
+
+	return nil
 }
