@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	PollCount   string = "PollCount"
-	RandomValue string = "RandomValue"
+	PollCount   = "PollCount"
+	RandomValue = "RandomValue"
 )
 
 type MetricCollector struct {
@@ -84,12 +84,12 @@ func (mc *MetricCollector) handle() error {
 	if isNeedSend {
 		err := mc.sender.Send(RandomValue, randomValue)
 		if err != nil {
-			return fmt.Errorf("Cannot send metric: %s\n%w", RandomValue, err)
+			return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
 		}
 
 		err = mc.sender.Send(PollCount, mc.pollCounter.Count())
 		if err != nil {
-			return fmt.Errorf("Cannot send metric: %s\n%w", PollCount, err)
+			return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
 		}
 
 		mc.lastLogTime = time.Now()
@@ -107,7 +107,7 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 	for _, metricName := range mc.memStatReader.SupportedMetrics() {
 		metricVal, ok := mc.memStatReader.Get(metricName)
 		if !ok {
-			return fmt.Errorf("Cannot read metric: " + metricName)
+			return fmt.Errorf("can't read metric: %s", metricName)
 		}
 
 		err := mc.gaugeStorage.Set(metricName, GaugeValue(metricVal))
@@ -118,7 +118,7 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 		if isNeedSend {
 			err := mc.sender.Send(metricName, metricVal)
 			if err != nil {
-				return fmt.Errorf("Cannot send metric: %s\n%v", metricName, err)
+				return fmt.Errorf("can't send metric: %s\n%v", metricName, err)
 			}
 		}
 	}
