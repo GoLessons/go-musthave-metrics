@@ -19,19 +19,20 @@ func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "agent",
 		Short: "Metrics agent for collecting and sending metrics",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := loadConfig(cmd)
+	}
 
-			if cfg.ReportInterval <= 0 {
-				return fmt.Errorf("report interval must be positive, got %d", cfg.ReportInterval)
-			}
-			if cfg.PollInterval <= 0 {
-				return fmt.Errorf("poll interval must be positive, got %d", cfg.PollInterval)
-			}
+	cfg := loadConfig(rootCmd)
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
 
-			run(cfg)
-			return nil
-		},
+		if cfg.ReportInterval <= 0 {
+			return fmt.Errorf("report interval must be positive, got %d", cfg.ReportInterval)
+		}
+		if cfg.PollInterval <= 0 {
+			return fmt.Errorf("poll interval must be positive, got %d", cfg.PollInterval)
+		}
+
+		run(cfg)
+		return nil
 	}
 
 	rootCmd.FParseErrWhitelist.UnknownFlags = false
