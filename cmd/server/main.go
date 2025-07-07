@@ -6,26 +6,34 @@ import (
 	"net/http"
 )
 
-var address string
-
-var rootCmd = &cobra.Command{
-	Use: "server",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return run()
-	},
-}
-
-func init() {
-	rootCmd.Flags().StringVarP(&address, "address", "a", "localhost:8080", "Metric server address")
-	rootCmd.FParseErrWhitelist.UnknownFlags = false
+type Config struct {
+	Address string
 }
 
 func main() {
+	var rootCmd = &cobra.Command{
+		Use: "server",
+	}
+
+	cfg := loadConfig(rootCmd)
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+
+		return run(cfg)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		panic(err)
 	}
 }
 
-func run() error {
-	return http.ListenAndServe(address, router.InitRouter())
+func run(cfg *Config) error {
+	return http.ListenAndServe(cfg.Address, router.InitRouter())
+}
+
+func loadConfig(cmd *cobra.Command) *Config {
+	cfg := &Config{}
+
+	cmd.Flags().StringVarP(&cfg.Address, "address", "a", "localhost:8080", "HTTP server address")
+
+	return cfg
 }
