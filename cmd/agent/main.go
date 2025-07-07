@@ -9,48 +9,53 @@ import (
 	"time"
 )
 
-var (
-	address        string
-	reportInterval int
-	pollInterval   int
-)
-
-func init() {
-	rootCmd.Flags().StringVarP(&address, "address", "a", "localhost:8080", "HTTP server address")
-	rootCmd.Flags().IntVarP(&reportInterval, "report", "r", 10, "Report interval in seconds")
-	rootCmd.Flags().IntVarP(&pollInterval, "poll", "p", 2, "Poll interval in seconds")
-
-	// Запрещаем использование неизвестных флагов
-	rootCmd.FParseErrWhitelist.UnknownFlags = false
-}
-
-var rootCmd = &cobra.Command{
-	Use:   "agent",
-	Short: "Metrics agent for collecting and sending metrics",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if reportInterval <= 0 {
-			return fmt.Errorf("report interval must be positive, got %d", reportInterval)
-		}
-		if pollInterval <= 0 {
-			return fmt.Errorf("poll interval must be positive, got %d", pollInterval)
-		}
-
-		run()
-		return nil
-	},
-}
-
-func run() {
-	metricCollector := MetricCollectorFactory(address, reportInterval, pollInterval)
-	defer metricCollector.Close()
-	metricCollector.CollectAndSendMetrics()
+type Config struct {
+	Address        string
+	ReportInterval int
+	PollInterval   int
 }
 
 func main() {
+	var rootCmd = &cobra.Command{
+		Use:   "agent",
+		Short: "Metrics agent for collecting and sending metrics",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := loadConfig(cmd)
+
+			if cfg.ReportInterval <= 0 {
+				return fmt.Errorf("report interval must be positive, got %d", cfg.ReportInterval)
+			}
+			if cfg.PollInterval <= 0 {
+				return fmt.Errorf("poll interval must be positive, got %d", cfg.PollInterval)
+			}
+
+			run(cfg)
+			return nil
+		},
+	}
+
+	rootCmd.FParseErrWhitelist.UnknownFlags = false
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func run(cfg *Config) {
+	metricCollector := MetricCollectorFactory(cfg.Address, cfg.ReportInterval, cfg.PollInterval)
+	defer metricCollector.Close()
+	metricCollector.CollectAndSendMetrics()
+}
+
+func loadConfig(cmd *cobra.Command) *Config {
+	cfg := &Config{}
+
+	cmd.Flags().StringVarP(&cfg.Address, "address", "a", "localhost:8080", "HTTP server address")
+	cmd.Flags().IntVarP(&cfg.ReportInterval, "report", "r", 10, "Report interval in seconds")
+	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", 2, "Poll interval in seconds")
+
+	return cfg
 }
 
 func MetricCollectorFactory(address string, reportInterval, pollInterval int) *agent.MetricCollector {
