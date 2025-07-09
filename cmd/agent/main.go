@@ -58,7 +58,7 @@ func run(cfg *Config) {
 func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cfg := &Config{}
 
-	err := env.Parse(&cfg)
+	err := env.Parse(cfg)
 	if err != nil {
 		return nil, err
 	}
