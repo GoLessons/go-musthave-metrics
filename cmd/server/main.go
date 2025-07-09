@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
+	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
 	"net/http"
+	"os"
 )
 
 type Config struct {
-	Address string
+	Address string `env:"ADDRESS" envDefault:"localhost:8080"`
 }
 
 func main() {
@@ -15,7 +18,12 @@ func main() {
 		Use: "server",
 	}
 
-	cfg := loadConfig(rootCmd)
+	cfg, err := loadConfig(rootCmd)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
 
 		return run(cfg)
@@ -30,10 +38,15 @@ func run(cfg *Config) error {
 	return http.ListenAndServe(cfg.Address, router.InitRouter())
 }
 
-func loadConfig(cmd *cobra.Command) *Config {
+func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cfg := &Config{}
 
-	cmd.Flags().StringVarP(&cfg.Address, "address", "a", "localhost:8080", "HTTP server address")
+	err := env.Parse(&cfg)
+	if err != nil {
+		return nil, err
+	}
 
-	return cfg
+	cmd.Flags().StringVarP(&cfg.Address, "address", "a", cfg.Address, "HTTP server address")
+
+	return cfg, nil
 }
