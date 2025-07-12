@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"net/http"
 	"os"
 )
@@ -35,7 +38,13 @@ func main() {
 }
 
 func run(cfg *Config) error {
-	return http.ListenAndServe(cfg.Address, router.InitRouter())
+	serverLogger, err := logger.NewLogger(zap.NewProductionConfig())
+	if err != nil {
+		return err
+	}
+
+	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
+	return http.ListenAndServe(cfg.Address, loggingMiddleware(router.InitRouter()))
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
