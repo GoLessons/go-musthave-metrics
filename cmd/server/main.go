@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
@@ -43,8 +45,11 @@ func run(cfg *Config) error {
 		return err
 	}
 
+	var storageCounter = storage.NewMemStorage[model.Counter]()
+	var storageGauge = storage.NewMemStorage[model.Gauge]()
+
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-	return http.ListenAndServe(cfg.Address, loggingMiddleware(router.InitRouter()))
+	return http.ListenAndServe(cfg.Address, loggingMiddleware(router.InitRouter(storageCounter, storageGauge)))
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {

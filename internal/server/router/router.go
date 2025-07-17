@@ -12,10 +12,7 @@ import (
 	"net/http"
 )
 
-var storageCounter = storage.NewMemStorage[model.Counter]()
-var storageGauge = storage.NewMemStorage[model.Gauge]()
-
-func InitRouter() *chi.Mux {
+func InitRouter(storageCounter storage.Storage[model.Counter], storageGauge storage.Storage[model.Gauge]) *chi.Mux {
 	routes := map[string]handler.MetricController{
 		common.Counter: handler.NewCounterController(storageCounter),
 		common.Gauge:   handler.NewGaugeController(storageGauge),
