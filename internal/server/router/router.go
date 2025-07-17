@@ -7,6 +7,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/handler"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )
@@ -21,6 +22,11 @@ func InitRouter() *chi.Mux {
 	}
 
 	r := chi.NewRouter()
+
+	metricService := service.NewMetricService(storageCounter, storageGauge)
+	metricsJSONController := handler.NewMetricsController(*metricService)
+	r.Post("/update", metricsJSONController.Update)
+
 	for metricType, metricController := range routes {
 		r.Route("/update/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}", func(r chi.Router) {
 			r.Use(initMetricCtx)

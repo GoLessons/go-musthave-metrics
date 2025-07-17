@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/go-chi/chi/v5 v5.2.2
+	github.com/goccy/go-json v0.10.5
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
