@@ -39,7 +39,7 @@ func (ms *MetricService) Save(metric model.Metrics) error {
 		counter.Inc(*metric.Delta)
 		err = ms.counterStorage.Set(metric.ID, counter)
 		if err != nil {
-			return fmt.Errorf("Failed to update counter: %s", err.Error())
+			return fmt.Errorf("failed to update counter: %s", err.Error())
 		}
 
 	case model.Gauge:
@@ -110,7 +110,7 @@ func (ms *MetricService) validate(metric model.Metrics) error {
 		}
 
 	default:
-		return fmt.Errorf("Unknown metric type: %s", metric.MType)
+		return fmt.Errorf("unknown metric type: %s", metric.MType)
 	}
 
 	return nil

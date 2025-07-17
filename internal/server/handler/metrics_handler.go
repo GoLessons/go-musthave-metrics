@@ -63,14 +63,14 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 func (h *metricsController) receiveMetric(r *http.Request) (*model.Metrics, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read request body: " + err.Error())
+		return nil, fmt.Errorf("failed to read request body: %s", err.Error())
 	}
 	defer r.Body.Close()
 
 	var metrics model.Metrics
 	err = json.Unmarshal(body, &metrics)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse JSON: " + err.Error())
+		return nil, fmt.Errorf("failed to parse JSON: %s", err.Error())
 	}
 
 	return &metrics, err
