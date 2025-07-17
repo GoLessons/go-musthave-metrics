@@ -26,6 +26,7 @@ func InitRouter() *chi.Mux {
 	metricService := service.NewMetricService(storageCounter, storageGauge)
 	metricsJSONController := handler.NewMetricsController(*metricService)
 	r.Post("/update", metricsJSONController.Update)
+	r.Post("/value", metricsJSONController.Get)
 
 	for metricType, metricController := range routes {
 		r.Route("/update/"+metricType+"/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}", func(r chi.Router) {

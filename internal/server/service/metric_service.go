@@ -5,7 +5,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"net/http"
 )
 
 type MetricService struct {
@@ -40,7 +39,7 @@ func (ms *MetricService) Save(metric model.Metrics) error {
 		counter.Inc(*metric.Delta)
 		err = ms.counterStorage.Set(metric.ID, counter)
 		if err != nil {
-			return fmt.Errorf("Failed to update counter: "+err.Error(), http.StatusInternalServerError)
+			return fmt.Errorf("Failed to update counter: %s", err.Error())
 		}
 
 	case model.Gauge:
@@ -53,11 +52,11 @@ func (ms *MetricService) Save(metric model.Metrics) error {
 		gauge.Set(*metric.Value)
 		err = ms.gaugeStorage.Set(metric.ID, gauge)
 		if err != nil {
-			return fmt.Errorf("Failed to update gauge: "+err.Error(), http.StatusInternalServerError)
+			return fmt.Errorf("failed to update gauge: %s", err.Error())
 		}
 
 	default:
-		return fmt.Errorf("Unknown metric type: " + metric.MType)
+		return fmt.Errorf("unknown metric type: %s", metric.MType)
 	}
 
 	return nil
@@ -68,7 +67,7 @@ func (ms *MetricService) Read(metricType string, metricName string) (*model.Metr
 	case model.Counter:
 		metric, err := ms.counterStorage.Get(metricName)
 		if err != nil {
-			return nil, fmt.Errorf("Metric not found: " + metricName)
+			return nil, fmt.Errorf("metric not found: %s", metricName)
 		}
 
 		val := metric.Value()
@@ -80,7 +79,7 @@ func (ms *MetricService) Read(metricType string, metricName string) (*model.Metr
 	case model.Gauge:
 		metric, err := ms.gaugeStorage.Get(metricName)
 		if err != nil {
-			return nil, fmt.Errorf("Metric not found: " + metricName)
+			return nil, fmt.Errorf("metric not found: %s", metricName)
 		}
 
 		val := metric.Value()
@@ -91,7 +90,7 @@ func (ms *MetricService) Read(metricType string, metricName string) (*model.Metr
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Unknown metric type: " + metricType)
+	return nil, fmt.Errorf("unknown metric type: %s", metricType)
 }
 
 func (ms *MetricService) validate(metric model.Metrics) error {
@@ -102,16 +101,16 @@ func (ms *MetricService) validate(metric model.Metrics) error {
 	switch metric.MType {
 	case model.Counter:
 		if metric.Delta == nil {
-			return fmt.Errorf("Missing required field: delta")
+			return fmt.Errorf("missing required field: delta")
 		}
 
 	case model.Gauge:
 		if metric.Value == nil {
-			return fmt.Errorf("Missing required field: value")
+			return fmt.Errorf("missing required field: value")
 		}
 
 	default:
-		return fmt.Errorf("Unknown metric type: " + metric.MType)
+		return fmt.Errorf("Unknown metric type: %s", metric.MType)
 	}
 
 	return nil
