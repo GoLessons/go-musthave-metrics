@@ -3,6 +3,8 @@ package test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"net/http"
 	"net/http/httptest"
@@ -14,8 +16,10 @@ type tester struct {
 }
 
 func NewTester() *tester {
+	var testStorageCounter = storage.NewMemStorage[model.Counter]()
+	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
 	return &tester{
-		testServer: httptest.NewServer(router.InitRouter()),
+		testServer: httptest.NewServer(router.InitRouter(testStorageCounter, testStorageGauge)),
 		httpClient: http.DefaultClient,
 	}
 }
