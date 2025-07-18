@@ -3,6 +3,7 @@ package test
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -18,7 +19,9 @@ func TestGauge(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		assert.Equal(t, test.status, resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+
+		assert.Equal(t, test.status, resp.StatusCode, test.path, string(body))
 	}
 }
 
@@ -30,10 +33,10 @@ type testGauge struct {
 
 func providerTestGauge() []testGauge {
 	return []testGauge{
-		{"/update/gauge/test/100.01", http.MethodPost, http.StatusOK},
-		{"/update/gauge/test/-100.01", http.MethodPost, http.StatusOK},
-		{"/update/gauge/test/100", http.MethodPost, http.StatusOK},
-		{"/update/gauge/test/NaN", http.MethodPost, http.StatusNotFound},
+		{"/update/gauge/test/100.01", http.MethodPost, http.StatusNoContent},
+		{"/update/gauge/test/-100.01", http.MethodPost, http.StatusNoContent},
+		{"/update/gauge/test/100", http.MethodPost, http.StatusNoContent},
+		{"/update/gauge/test/NaN", http.MethodPost, http.StatusBadRequest},
 		{"/update/unknown/test/100.01", http.MethodPost, http.StatusBadRequest},
 		{"/update/gauge/test/100.01", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/gauge/test/100.01", http.MethodPut, http.StatusMethodNotAllowed},

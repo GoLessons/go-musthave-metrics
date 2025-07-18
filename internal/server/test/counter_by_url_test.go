@@ -18,7 +18,7 @@ func TestCounter(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		assert.Equal(t, test.status, resp.StatusCode)
+		assert.Equal(t, test.status, resp.StatusCode, test.path)
 	}
 }
 
@@ -30,10 +30,10 @@ type testCounter struct {
 
 func providerTestCounter() []testCounter {
 	return []testCounter{
-		{"/update/counter/test/100", http.MethodPost, http.StatusOK},
-		{"/update/counter/test/-100", http.MethodPost, http.StatusOK},
-		{"/update/counter/test/100.0", http.MethodPost, http.StatusBadRequest},
-		{"/update/counter/test/NaN", http.MethodPost, http.StatusNotFound},
+		{"/update/counter/test/100", http.MethodPost, http.StatusNoContent},
+		{"/update/counter/test/-100", http.MethodPost, http.StatusNoContent},
+		{"/update/counter/test/100.0", http.MethodPost, http.StatusNoContent},
+		{"/update/counter/test/NaN", http.MethodPost, http.StatusBadRequest},
 		{"/update/unknown/test/100", http.MethodPost, http.StatusBadRequest},
 		{"/update/counter/test/100", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/counter/test/100", http.MethodPut, http.StatusMethodNotAllowed},

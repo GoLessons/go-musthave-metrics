@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
-	"io"
 	"net/http"
 )
 
@@ -20,11 +18,8 @@ func NewMetricsController(metricService service.MetricService) *metricsControlle
 }
 
 func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
-	metricData, err := h.receiveMetric(r)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: %v", err.Error()), http.StatusBadRequest)
-		return
-	}
+	ctx := r.Context()
+	metricData := ctx.Value("metric").(model.Metrics)
 
 	metric, err := h.metricService.Read(metricData.MType, metricData.ID)
 	if err != nil {
@@ -47,32 +42,13 @@ func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
-	metricData, err := h.receiveMetric(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	ctx := r.Context()
+	metricData := ctx.Value("metric").(model.Metrics)
 
-	err = h.metricService.Save(*metricData)
+	err := h.metricService.Save(metricData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *metricsController) receiveMetric(r *http.Request) (*model.Metrics, error) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %s", err.Error())
-	}
-	defer r.Body.Close()
-
-	var metrics model.Metrics
-	err = json.Unmarshal(body, &metrics)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %s", err.Error())
-	}
-
-	return &metrics, err
 }

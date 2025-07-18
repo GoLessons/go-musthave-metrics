@@ -106,6 +106,7 @@ func (ms *MetricService) validate(metric model.Metrics) error {
 
 	case model.Gauge:
 		if metric.Value == nil {
+
 			return fmt.Errorf("missing required field: value")
 		}
 
