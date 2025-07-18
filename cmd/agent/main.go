@@ -14,6 +14,7 @@ type Config struct {
 	Address        string `env:"ADDRESS" envDefault:"localhost:8080"`
 	ReportInterval int    `env:"REPORT_INTERVAL" envDefault:"10"`
 	PollInterval   int    `env:"POLL_INTERVAL" envDefault:"2"`
+	Plain          bool   `env:"PLAIN" envDefault:"false"`
 }
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 }
 
 func run(cfg *Config) {
-	metricCollector := MetricCollectorFactory(cfg.Address, cfg.ReportInterval, cfg.PollInterval)
+	metricCollector := MetricCollectorFactory(cfg)
 	defer metricCollector.Close()
 	metricCollector.CollectAndSendMetrics()
 }
@@ -66,17 +67,25 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().StringVarP(&cfg.Address, "address", "a", cfg.Address, "HTTP server address")
 	cmd.Flags().IntVarP(&cfg.ReportInterval, "report", "r", cfg.ReportInterval, "Report interval in seconds")
 	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", cfg.PollInterval, "Poll interval in seconds")
+	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
 
 	return cfg, nil
 }
 
-func MetricCollectorFactory(address string, reportInterval, pollInterval int) *agent.MetricCollector {
+func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
+	var sender agent.Sender
+	if cfg.Plain {
+		sender = agent.NewMetricUrlSender(cfg.Address)
+	} else {
+		sender = agent.NewJSONSender(cfg.Address)
+	}
+
 	return agent.NewMetricCollector(
 		storage.NewMemStorage[agent.GaugeValue](),
 		storage.NewMemStorage[agent.CounterValue](),
 		agent.NewMemStatsReader(),
-		agent.NewMetricSender(address),
-		time.Duration(reportInterval)*time.Second,
-		time.Duration(pollInterval)*time.Second,
+		sender,
+		time.Duration(cfg.ReportInterval)*time.Second,
+		time.Duration(cfg.PollInterval)*time.Second,
 	)
 }

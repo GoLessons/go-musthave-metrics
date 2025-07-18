@@ -2,9 +2,9 @@ package agent
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"time"
 )
 
 var (
@@ -12,13 +12,18 @@ var (
 	RandomValue = "RandomValue"
 )
 
+type Sender interface {
+	Send(model.Metrics) error
+	Close()
+}
+
 type MetricCollector struct {
 	gaugeStorage   storage.Storage[GaugeValue]
 	counterStorage storage.Storage[CounterValue]
 	memStatReader  *memStatsReader[float64]
 	pollCounter    *pollCounter[CounterValue]
 	randomizer     *Randomizer
-	sender         *sender
+	sender         Sender
 	dumpInterval   time.Duration
 	pollDuration   time.Duration
 	lastLogTime    time.Time
@@ -28,7 +33,7 @@ func NewMetricCollector(
 	gaugeStorage storage.Storage[GaugeValue],
 	counterStorage storage.Storage[CounterValue],
 	memStatReader *memStatsReader[float64],
-	sender *sender,
+	sender Sender,
 	dumpInterval time.Duration,
 	pollDuration time.Duration,
 ) *MetricCollector {
@@ -82,12 +87,22 @@ func (mc *MetricCollector) handle() error {
 	}
 
 	if isNeedSend {
-		err := mc.sender.Send(RandomValue, randomValue)
+		err := mc.sender.Send(model.Metrics{
+			ID:    RandomValue,
+			MType: model.Gauge,
+			Value: (*float64)(&randomValue),
+		})
 		if err != nil {
 			return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
 		}
 
-		err = mc.sender.Send(PollCount, mc.pollCounter.Count())
+		poolCount := mc.pollCounter.Count()
+		err = mc.sender.Send(model.Metrics{
+			ID:    PollCount,
+			MType: model.Counter,
+			Delta: (*int64)(&poolCount),
+		})
+
 		if err != nil {
 			return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
 		}
@@ -116,7 +131,11 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 		}
 
 		if isNeedSend {
-			err := mc.sender.Send(metricName, metricVal)
+			err := mc.sender.Send(model.Metrics{
+				ID:    metricName,
+				MType: model.Gauge,
+				Value: &metricVal,
+			})
 			if err != nil {
 				return fmt.Errorf("can't send metric: %s\n%v", metricName, err)
 			}
