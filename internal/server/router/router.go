@@ -7,6 +7,7 @@ import (
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/go-chi/chi/v5"
+	"net/http"
 )
 
 func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGauge storage.Storage[serverModel.Gauge]) *chi.Mux {
@@ -25,18 +26,41 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 		r.Use(middleware.MetricCtxFromPath)
 		r.Get("/", metricController.Get)
 	})
-	r.Route("/update",
-		func(r chi.Router) {
-			r.Use(middleware.MetricCtxFromBody)
-			r.Post("/", metricController.Update)
-		},
-	)
+
+	r.Route("/update", func(r chi.Router) {
+		r.Use(middleware.ValidateRoute)
+		r.Use(middleware.MetricCtxFromBody)
+		r.Post("/", metricController.Update)
+
+		r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+		})
+	})
+
 	r.Route("/value",
 		func(r chi.Router) {
 			r.Use(middleware.MetricCtxFromBody)
 			r.Post("/", metricController.Get)
 		},
 	)
+
+	/*
+		r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
+			r.Use(middleware.MetricCtxFromPath)
+			r.Get("/", metricController.Get)
+		})
+		r.Route("/update",
+			func(r chi.Router) {
+				r.Use(middleware.MetricCtxFromBody)
+				r.Post("/", metricController.Update)
+			},
+		)
+		r.Route("/value",
+			func(r chi.Router) {
+				r.Use(middleware.MetricCtxFromBody)
+				r.Post("/", metricController.Get)
+			},
+		)*/
 
 	r.Get(
 		"/",

@@ -37,5 +37,6 @@ func providerTestCounter() []testCounter {
 		{"/update/unknown/test/100", http.MethodPost, http.StatusBadRequest},
 		{"/update/counter/test/100", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/counter/test/100", http.MethodPut, http.StatusMethodNotAllowed},
+		{"/update/counter/", http.MethodPost, http.StatusNotFound},
 	}
 }
