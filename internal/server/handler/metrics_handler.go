@@ -6,15 +6,20 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
 	"net/http"
+	"strconv"
 )
 
 type metricsController struct {
-	metricService service.MetricService
+	metricService   service.MetricService
+	responseBuilder ResponseBuilder
 }
 
-func NewMetricsController(metricService service.MetricService) *metricsController {
+type ResponseBuilder func(*http.ResponseWriter, *model.Metrics)
+
+func NewMetricsController(metricService service.MetricService, responseBuilder ResponseBuilder) *metricsController {
 	return &metricsController{
-		metricService: metricService,
+		metricService:   metricService,
+		responseBuilder: responseBuilder,
 	}
 }
 
@@ -28,18 +33,7 @@ func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseBody, err := json.Marshal(metric)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(responseBody)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	h.responseBuilder(&w, metric)
 }
 
 func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
@@ -52,4 +46,35 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func JsonResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
+	responseBody, err := json.Marshal(metric)
+	if err != nil {
+		http.Error(*w, err.Error(), http.StatusInternalServerError)
+	}
+
+	(*w).Header().Set("Content-Type", "application/json")
+	_, err = (*w).Write(responseBody)
+	if err != nil {
+		http.Error(*w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func PlainResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
+	var responseBody []byte
+	switch metric.MType {
+	case model.Counter:
+		responseBody = []byte(strconv.FormatInt(*metric.Delta, 10))
+	case model.Gauge:
+		responseBody = []byte(strconv.FormatFloat(*metric.Value, 'f', 6, 64))
+	default:
+		http.Error(*w, "Unsupported metric type", http.StatusInternalServerError)
+	}
+
+	(*w).Header().Set("Content-Type", "plain/text")
+	_, err := (*w).Write(responseBody)
+	if err != nil {
+		http.Error(*w, err.Error(), http.StatusInternalServerError)
+	}
 }
