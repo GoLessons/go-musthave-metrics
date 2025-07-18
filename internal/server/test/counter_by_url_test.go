@@ -8,11 +8,11 @@ import (
 )
 
 func TestCounter(t *testing.T) {
-	I := NewTester()
+	I := NewTester(t)
 	defer I.Shutdown()
 
 	for _, test := range providerTestCounter() {
-		resp, err := I.DoRequest(test.method, test.path, nil)
+		resp, err := I.DoRequest(test.method, test.path, nil, "text/plain")
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 

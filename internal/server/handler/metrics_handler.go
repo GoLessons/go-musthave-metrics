@@ -22,7 +22,7 @@ func NewMetricsController(metricService service.MetricService) *metricsControlle
 func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 	metricData, err := h.receiveMetric(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: %v", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -38,6 +38,7 @@ func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	_, err = w.Write(responseBody)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
