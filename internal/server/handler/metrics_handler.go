@@ -67,7 +67,7 @@ func PlainResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
 	case model.Counter:
 		responseBody = []byte(strconv.FormatInt(*metric.Delta, 10))
 	case model.Gauge:
-		responseBody = []byte(strconv.FormatFloat(*metric.Value, 'f', 6, 64))
+		responseBody = []byte(strconv.FormatFloat(*metric.Value, 'g', -1, 64))
 	default:
 		http.Error(*w, "Unsupported metric type", http.StatusInternalServerError)
 	}
