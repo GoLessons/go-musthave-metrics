@@ -75,7 +75,7 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 	var sender agent.Sender
 	if cfg.Plain {
-		sender = agent.NewMetricUrlSender(cfg.Address)
+		sender = agent.NewMetricURLSender(cfg.Address)
 	} else {
 		sender = agent.NewJSONSender(cfg.Address)
 	}

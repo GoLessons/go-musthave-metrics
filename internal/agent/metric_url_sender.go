@@ -10,7 +10,7 @@ type urPathSender struct {
 	client *resty.Client
 }
 
-func NewMetricUrlSender(address string) *urPathSender {
+func NewMetricURLSender(address string) *urPathSender {
 	client := resty.New()
 	client.SetBaseURL("http://"+address).
 		SetHeader("Content-Type", "text/plain")
