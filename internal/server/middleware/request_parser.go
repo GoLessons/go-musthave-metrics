@@ -25,10 +25,16 @@ func MetricCtxFromPath(next http.Handler) http.Handler {
 
 		switch metricType {
 		case model.Counter:
-			value, _ := strconv.ParseInt(valueRaw, 10, 64)
+			value, err := strconv.ParseInt(valueRaw, 10, 64)
+			if err != nil && valueRaw != "" {
+				http.Error(w, fmt.Sprintf("Unsupported metric value %s = %s", metricType, valueRaw), http.StatusBadRequest)
+			}
 			metric.Delta = &value
 		case model.Gauge:
-			value, _ := strconv.ParseFloat(valueRaw, 64)
+			value, err := strconv.ParseFloat(valueRaw, 64)
+			if err != nil && valueRaw != "" {
+				http.Error(w, fmt.Sprintf("Unsupported metric value %s = %s", metricType, valueRaw), http.StatusBadRequest)
+			}
 			metric.Value = &value
 		default:
 			http.Error(w, fmt.Sprintf("Metric type %s not defined", metricType), http.StatusBadRequest)
