@@ -14,7 +14,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 	r := chi.NewRouter()
 
 	metricService := service.NewMetricService(storageCounter, storageGauge)
-	metricControllerJson := handler.NewMetricsController(*metricService, handler.JsonResposeBuilder)
+	metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder)
 	metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder)
 
 	r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
@@ -31,7 +31,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 	r.Route("/update", func(r chi.Router) {
 		r.Use(middleware.ValidateRoute)
 		r.Use(middleware.MetricCtxFromBody)
-		r.Post("/", metricControllerJson.Update)
+		r.Post("/", metricControllerJSON.Update)
 
 		r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Not Found", http.StatusNotFound)
@@ -41,7 +41,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 	r.Route("/value",
 		func(r chi.Router) {
 			r.Use(middleware.MetricCtxFromBody)
-			r.Post("/", metricControllerJson.Get)
+			r.Post("/", metricControllerJSON.Get)
 		},
 	)
 

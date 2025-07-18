@@ -48,7 +48,7 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func JsonResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
+func JSONResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
 	responseBody, err := json.Marshal(metric)
 	if err != nil {
 		http.Error(*w, err.Error(), http.StatusInternalServerError)
