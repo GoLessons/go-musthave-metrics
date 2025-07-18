@@ -26,7 +26,7 @@ func TestUpdateCounterJSON(t *testing.T) {
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	getMetric := model.Metrics{
 		ID:    metric.ID,

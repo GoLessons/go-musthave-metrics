@@ -30,8 +30,8 @@ type testCounter struct {
 
 func providerTestCounter() []testCounter {
 	return []testCounter{
-		{"/update/counter/test/100", http.MethodPost, http.StatusNoContent},
-		{"/update/counter/test/-100", http.MethodPost, http.StatusNoContent},
+		{"/update/counter/test/100", http.MethodPost, http.StatusOK},
+		{"/update/counter/test/-100", http.MethodPost, http.StatusOK},
 		{"/update/counter/test/100.0", http.MethodPost, http.StatusBadRequest},
 		{"/update/counter/test/NaN", http.MethodPost, http.StatusBadRequest},
 		{"/update/unknown/test/100", http.MethodPost, http.StatusBadRequest},

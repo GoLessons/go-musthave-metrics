@@ -33,9 +33,9 @@ type testGauge struct {
 
 func providerTestGauge() []testGauge {
 	return []testGauge{
-		{"/update/gauge/test/100.01", http.MethodPost, http.StatusNoContent},
-		{"/update/gauge/test/-100.01", http.MethodPost, http.StatusNoContent},
-		{"/update/gauge/test/100", http.MethodPost, http.StatusNoContent},
+		{"/update/gauge/test/100.01", http.MethodPost, http.StatusOK},
+		{"/update/gauge/test/-100.01", http.MethodPost, http.StatusOK},
+		{"/update/gauge/test/100", http.MethodPost, http.StatusOK},
 		{"/update/gauge/test/NaN", http.MethodPost, http.StatusBadRequest},
 		{"/update/gauge/testGauge/none", http.MethodPost, http.StatusBadRequest},
 		{"/update/unknown/test/100.01", http.MethodPost, http.StatusBadRequest},
