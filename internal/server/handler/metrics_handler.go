@@ -29,7 +29,7 @@ func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 
 	metric, err := h.metricService.Read(metricData.MType, metricData.ID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 

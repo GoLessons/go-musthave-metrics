@@ -42,6 +42,6 @@ func providerTestGauge() []testGauge {
 		{"/update/gauge/test/100.01", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/gauge/test/100.01", http.MethodPut, http.StatusMethodNotAllowed},
 		{"/update/gauge/", http.MethodPost, http.StatusNotFound},
-		{"/update/gauge/testUnknown1", http.MethodGet, http.StatusNotFound},
+		{"/value/gauge/testUnknown1", http.MethodGet, http.StatusNotFound},
 	}
 }

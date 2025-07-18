@@ -38,6 +38,6 @@ func providerTestCounter() []testCounter {
 		{"/update/counter/test/100", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/counter/test/100", http.MethodPut, http.StatusMethodNotAllowed},
 		{"/update/counter/", http.MethodPost, http.StatusNotFound},
-		{"/update/counter/testUnknown1", http.MethodGet, http.StatusNotFound},
+		{"/value/counter/testUnknown1", http.MethodGet, http.StatusNotFound},
 	}
 }
