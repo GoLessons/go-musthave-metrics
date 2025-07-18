@@ -35,7 +35,7 @@ func MetricCtxFromPath(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "metric", metric)
+		ctx = context.WithValue(ctx, server.Metric, metric)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -55,7 +55,7 @@ func MetricCtxFromBody(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, "metric", metric)
+		ctx = context.WithValue(ctx, server.Metric, metric)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
