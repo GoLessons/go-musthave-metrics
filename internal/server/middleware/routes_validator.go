@@ -20,7 +20,7 @@ func isValidRoute(path string) bool {
 		return true
 	}
 
-	if path == "/update" {
+	if path == "/update" || path == "/update/" {
 		return true
 	}
 
