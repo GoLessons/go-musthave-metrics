@@ -15,6 +15,7 @@ type Config struct {
 	ReportInterval int    `env:"REPORT_INTERVAL" envDefault:"10"`
 	PollInterval   int    `env:"POLL_INTERVAL" envDefault:"2"`
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
+	DisableGzip    bool   `env:"NO_GZIP" envDefault:"false"`
 }
 
 func main() {
@@ -68,6 +69,7 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().IntVarP(&cfg.ReportInterval, "report", "r", cfg.ReportInterval, "Report interval in seconds")
 	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", cfg.PollInterval, "Poll interval in seconds")
 	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
+	cmd.Flags().BoolVarP(&cfg.DisableGzip, "no-gzip", "", cfg.DisableGzip, "Disable gzip compression for JSON requests")
 
 	return cfg, nil
 }
@@ -77,7 +79,7 @@ func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 	if cfg.Plain {
 		sender = agent.NewMetricURLSender(cfg.Address)
 	} else {
-		sender = agent.NewJSONSender(cfg.Address)
+		sender = agent.NewJSONSender(cfg.Address, cfg.DisableGzip)
 	}
 
 	return agent.NewMetricCollector(
