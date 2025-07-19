@@ -6,17 +6,21 @@ import (
 	"resty.dev/v3"
 )
 
+type BeforeSend func(model.Metrics, *resty.Request) *resty.Request
+
 type jsonSender struct {
-	client *resty.Client
+	client     *resty.Client
+	beforeSend []BeforeSend
 }
 
-func NewJSONSender(address string) *jsonSender {
+func NewJSONSender(address string, beforeSend ...BeforeSend) *jsonSender {
 	client := resty.New()
 	client.SetBaseURL("http://"+address).
 		SetHeader("Content-Type", "application/json")
 
 	return &jsonSender{
-		client: client,
+		client:     client,
+		beforeSend: beforeSend,
 	}
 }
 

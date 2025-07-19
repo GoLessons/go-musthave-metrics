@@ -43,6 +43,8 @@ func TestUpdateCounterJSON(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
+	t.Log(string(body))
+
 	var result model.Metrics
 	err = json.Unmarshal(body, &result)
 	require.NoError(t, err)

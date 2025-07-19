@@ -74,8 +74,14 @@ func (tester *tester) DoRequest(method string, endpoint string, body interface{}
 
 	req, _ := http.NewRequest(method, tester.testServer.URL+endpoint, &data)
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Del("Accept-Encoding")
+	req.Header.Del("Content-Encoding")
 
-	httpClient := tester.httpClient
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DisableCompression: true,
+		},
+	}
 	resp, err = httpClient.Do(req)
 
 	/*if testing.Verbose() && resp != nil {
