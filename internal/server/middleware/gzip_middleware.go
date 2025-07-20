@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w
 
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 
-		fmt.Printf("Middleware Request Headers: %s\n", r.Header)
+		fmt.Printf("Request Headers: %s\n", r.Header)
 
 		if supportsGzip {
 			cw := common.NewCompressWriter(w)
@@ -36,6 +36,6 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 			defer cr.Close()
 		}
 
-		h.ServeHTTP(ow, r)
-	}
+		next.ServeHTTP(ow, r)
+	})
 }

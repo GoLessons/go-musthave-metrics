@@ -24,6 +24,7 @@ func NewLoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 				zap.String("uri", r.RequestURI),
 				zap.Duration("duration", duration),
 				zap.Int("status_code", rw.statusCode),
+				zap.String("response_body", rw.body),
 				zap.Int("response_size", rw.size),
 			)
 		})
@@ -34,6 +35,7 @@ type loggingDecorator struct {
 	http.ResponseWriter
 	statusCode int
 	size       int
+	body       string
 }
 
 func (rw *loggingDecorator) WriteHeader(code int) {
@@ -44,5 +46,6 @@ func (rw *loggingDecorator) WriteHeader(code int) {
 func (rw *loggingDecorator) Write(b []byte) (int, error) {
 	size, err := rw.ResponseWriter.Write(b)
 	rw.size += size
+	rw.body = string(b)
 	return size, err
 }

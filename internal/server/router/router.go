@@ -30,8 +30,9 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 
 	r.Route("/update", func(r chi.Router) {
 		r.Use(middleware.ValidateRoute)
+		r.Use(middleware.GzipMiddleware)
 		r.Use(middleware.MetricCtxFromBody)
-		r.Post("/", middleware.GzipMiddleware(metricControllerJSON.Update))
+		r.Post("/", metricControllerJSON.Update)
 		r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		})
@@ -39,8 +40,9 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 
 	r.Route("/value",
 		func(r chi.Router) {
+			r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricCtxFromBody)
-			r.Post("/", middleware.GzipMiddleware(metricControllerJSON.Get))
+			r.Post("/", metricControllerJSON.Get)
 		},
 	)
 
