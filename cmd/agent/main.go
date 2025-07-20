@@ -15,7 +15,7 @@ type Config struct {
 	ReportInterval int    `env:"REPORT_INTERVAL" envDefault:"10"`
 	PollInterval   int    `env:"POLL_INTERVAL" envDefault:"2"`
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
-	EnableGzip     bool   `env:"GZIP" envDefault:"true"`
+	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
 }
 
 func main() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/goccy/go-json"
+	"net/http"
 	"resty.dev/v3"
 )
 
@@ -15,7 +16,10 @@ type jsonSender struct {
 }
 
 func NewJSONSender(address string, enableGzip bool) *jsonSender {
-	client := resty.New()
+	client := resty.New().SetTransport(&http.Transport{
+		DisableCompression: true,
+	})
+
 	client.SetBaseURL("http://"+address).
 		SetHeader("Content-Type", "application/json")
 
