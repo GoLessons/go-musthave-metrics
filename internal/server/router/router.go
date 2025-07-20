@@ -30,7 +30,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 
 	r.Route("/update", func(r chi.Router) {
 		r.Use(middleware.ValidateRoute)
-		r.Use(middleware.GzipMiddleware)
+		//r.Use(middleware.GzipMiddleware)
 		r.Use(middleware.MetricCtxFromBody)
 		r.Post("/", metricControllerJSON.Update)
 		r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 
 	r.Route("/value",
 		func(r chi.Router) {
-			r.Use(middleware.GzipMiddleware)
+			//r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricCtxFromBody)
 			r.Post("/", metricControllerJSON.Get)
 		},
