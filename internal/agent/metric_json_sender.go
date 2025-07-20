@@ -10,18 +10,18 @@ import (
 )
 
 type jsonSender struct {
-	client      *resty.Client
-	disableGzip bool
+	client     *resty.Client
+	enableGzip bool
 }
 
-func NewJSONSender(address string, disableGzip bool) *jsonSender {
+func NewJSONSender(address string, enableGzip bool) *jsonSender {
 	client := resty.New()
 	client.SetBaseURL("http://"+address).
 		SetHeader("Content-Type", "application/json")
 
 	return &jsonSender{
-		client:      client,
-		disableGzip: disableGzip,
+		client:     client,
+		enableGzip: enableGzip,
 	}
 }
 
@@ -43,7 +43,7 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 
 	request := client.R()
 
-	if !sender.disableGzip {
+	if sender.enableGzip {
 		request.SetHeader("Content-Encoding", "gzip")
 		request.SetHeader("Accept-Encoding", "gzip")
 
