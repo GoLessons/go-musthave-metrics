@@ -24,6 +24,7 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 		},
 	)
 	r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
+		r.Use(middleware.GzipMiddleware)
 		r.Use(middleware.MetricCtxFromPath)
 		r.Get("/", metricControllerPlain.Get)
 	})
