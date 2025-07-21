@@ -32,6 +32,9 @@ func (m *storeStateMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		next.ServeHTTP(w, r)
 
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
+
 		if time.Since(m.lastStoreTime) >= m.storeInterval {
 			err := service.StoreState(m.metricService, m.metricDumper)
 			if err == nil {
