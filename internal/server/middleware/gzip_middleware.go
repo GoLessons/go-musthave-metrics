@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common"
 	"net/http"
 	"strings"
@@ -13,9 +12,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-
-		fmt.Printf("Request Headers: %s\n", r.Header)
-
 		if supportsGzip {
 			w.Header().Set("Content-Encoding", "gzip")
 			cw := common.NewCompressWriter(w)
@@ -25,7 +21,6 @@ func GzipMiddleware(next http.Handler) http.Handler {
 
 		contentEncoding := r.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
-
 		if sendsGzip {
 			cr, err := common.NewCompressReader(r.Body)
 			if err != nil {

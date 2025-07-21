@@ -5,6 +5,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
 	"net/http"
 	"net/http/httptest"
@@ -22,8 +23,9 @@ type tester struct {
 func NewTester(t *testing.T) *tester {
 	var testStorageCounter = storage.NewMemStorage[model.Counter]()
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
+	metricService := service.NewMetricService(testStorageCounter, testStorageGauge)
 	return &tester{
-		testServer:         httptest.NewServer(router.InitRouter(testStorageCounter, testStorageGauge)),
+		testServer:         httptest.NewServer(router.InitRouter(metricService, testStorageCounter, testStorageGauge)),
 		httpClient:         http.DefaultClient,
 		testStorageCounter: testStorageCounter,
 		testStorageGauge:   testStorageGauge,

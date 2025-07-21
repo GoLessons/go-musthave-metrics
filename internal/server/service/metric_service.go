@@ -93,6 +93,14 @@ func (ms *MetricService) Read(metricType string, metricName string) (*model.Metr
 	return nil, fmt.Errorf("unknown metric type: %s", metricType)
 }
 
+func (ms *MetricService) GetAllCounters() (map[string]serverModel.Counter, error) {
+	return ms.counterStorage.GetAll()
+}
+
+func (ms *MetricService) GetAllGauges() (map[string]serverModel.Gauge, error) {
+	return ms.gaugeStorage.GetAll()
+}
+
 func (ms *MetricService) validate(metric model.Metrics) error {
 	if metric.ID == "" || metric.MType == "" {
 		return fmt.Errorf("missing required fields: id or type")

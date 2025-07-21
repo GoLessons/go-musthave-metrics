@@ -7,6 +7,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -15,7 +16,14 @@ import (
 )
 
 type Config struct {
-	Address string `env:"ADDRESS" envDefault:"localhost:8080"`
+	Address    string `env:"ADDRESS" envDefault:"localhost:8080"`
+	DumpConfig *DumpConfig
+}
+
+type DumpConfig struct {
+	StoreInterval   uint64 `env:"STORE_INTERVAL" envDefault:"300"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:"metric-storage.json"`
+	Restore         bool   `env:"RESTORE" envDefault:"false"`
 }
 
 func main() {
@@ -48,19 +56,65 @@ func run(cfg *Config) error {
 	var storageCounter = storage.NewMemStorage[model.Counter]()
 	var storageGauge = storage.NewMemStorage[model.Gauge]()
 
+	metricService := service.NewMetricService(storageCounter, storageGauge)
+	metricDumper := service.NewFileMetricDumper(cfg.DumpConfig.FileStoragePath)
+
+	if cfg.DumpConfig.Restore {
+		err := service.RestoreState(metricService, metricDumper)
+		if err != nil {
+			return err
+		}
+	}
+
+	/*metricsAutoSave := service.NewMetricStorageService(
+		metricService,
+		metricDumper,
+		metricDumper,
+	)
+	if err := metricsAutoSave.Start(cfg.DumpConfig.StoreInterval); err != nil {
+		return fmt.Errorf("failed to start metric storage service: %w", err)
+	}
+	defer metricsAutoSave.Stop()*/
+
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-	return http.ListenAndServe(cfg.Address, loggingMiddleware(router.InitRouter(storageCounter, storageGauge)))
+	server := &http.Server{
+		Addr:    cfg.Address,
+		Handler: loggingMiddleware(router.InitRouter(metricService, storageCounter, storageGauge)),
+	}
+
+	server.RegisterOnShutdown(func() {
+		err := service.StoreState(metricService, metricDumper)
+		if err != nil {
+			serverLogger.Error("failed to store state", zap.Error(err))
+		}
+	})
+
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		return err
+	}
+
+	return nil
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
-	cfg := &Config{}
+	dumpConfig := &DumpConfig{}
+	err := env.Parse(dumpConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	err := env.Parse(cfg)
+	cfg := &Config{
+		DumpConfig: dumpConfig,
+	}
+	err = env.Parse(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	cmd.Flags().StringVarP(&cfg.Address, "address", "a", cfg.Address, "HTTP server address")
+	cmd.Flags().BoolVarP(&cfg.DumpConfig.Restore, "restore", "r", cfg.DumpConfig.Restore, "Restore metrics before starting")
+	cmd.Flags().Uint64VarP(&cfg.DumpConfig.StoreInterval, "store-interval", "i", cfg.DumpConfig.StoreInterval, "Store interval in seconds")
+	cmd.Flags().StringVarP(&cfg.DumpConfig.FileStoragePath, "file-storage-path", "f", cfg.DumpConfig.FileStoragePath, "File storage path")
 
 	return cfg, nil
 }

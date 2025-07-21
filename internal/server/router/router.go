@@ -10,10 +10,13 @@ import (
 	"net/http"
 )
 
-func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGauge storage.Storage[serverModel.Gauge]) *chi.Mux {
+func InitRouter(
+	metricService *service.MetricService,
+	counterStorage storage.Storage[serverModel.Counter],
+	gaugeStorage storage.Storage[serverModel.Gauge],
+) *chi.Mux {
 	r := chi.NewRouter()
 
-	metricService := service.NewMetricService(storageCounter, storageGauge)
 	metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder)
 	metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder)
 
@@ -53,8 +56,8 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 			r.Get(
 				"/",
 				handler.NewListController(
-					storageCounter,
-					storageGauge,
+					counterStorage,
+					gaugeStorage,
 				).Get,
 			)
 		},
