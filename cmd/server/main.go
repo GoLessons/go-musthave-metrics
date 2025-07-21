@@ -66,20 +66,15 @@ func run(cfg *Config) error {
 		}
 	}
 
-	/*metricsAutoSave := service.NewMetricStorageService(
-		metricService,
-		metricDumper,
-		metricDumper,
-	)
-	if err := metricsAutoSave.Start(cfg.DumpConfig.StoreInterval); err != nil {
-		return fmt.Errorf("failed to start metric storage service: %w", err)
-	}
-	defer metricsAutoSave.Stop()*/
-
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
+	storeState := middleware.NewStoreStateMiddleware(metricService, metricDumper, cfg.DumpConfig.StoreInterval)
 	server := &http.Server{
-		Addr:    cfg.Address,
-		Handler: loggingMiddleware(router.InitRouter(metricService, storageCounter, storageGauge)),
+		Addr: cfg.Address,
+		Handler: loggingMiddleware(
+			storeState.Middleware(
+				router.InitRouter(metricService, storageCounter, storageGauge),
+			),
+		),
 	}
 
 	server.RegisterOnShutdown(func() {
