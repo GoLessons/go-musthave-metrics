@@ -47,12 +47,17 @@ func InitRouter(storageCounter storage.Storage[serverModel.Counter], storageGaug
 		},
 	)
 
-	r.Get(
-		"/",
-		handler.NewListController(
-			storageCounter,
-			storageGauge,
-		).Get,
+	r.Route("/",
+		func(r chi.Router) {
+			r.Use(middleware.GzipMiddleware)
+			r.Get(
+				"/",
+				handler.NewListController(
+					storageCounter,
+					storageGauge,
+				).Get,
+			)
+		},
 	)
 
 	return r
