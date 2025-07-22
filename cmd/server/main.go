@@ -88,7 +88,7 @@ func main() {
 	defer storeFunc()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
@@ -96,17 +96,15 @@ func main() {
 		}
 	}()
 
-	select {
-	case <-quit:
-		serverLogger.Debug("Получен сигнал завершения работы")
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
+	<-quit
+	serverLogger.Debug("Получен сигнал завершения работы")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-		if err := server.Shutdown(ctx); err != nil {
-			serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
-		}
-		serverLogger.Debug("Сервер остановлен")
+	if err := server.Shutdown(ctx); err != nil {
+		serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
 	}
+	serverLogger.Debug("Сервер остановлен")
 }
 
 func loadConfig() (*Config, error) {
