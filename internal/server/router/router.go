@@ -7,6 +7,7 @@ import (
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -14,11 +15,12 @@ func InitRouter(
 	metricService *service.MetricService,
 	counterStorage storage.Storage[serverModel.Counter],
 	gaugeStorage storage.Storage[serverModel.Gauge],
+	logger *zap.Logger,
 ) *chi.Mux {
 	r := chi.NewRouter()
 
-	metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder)
-	metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder)
+	metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder, logger)
+	metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder, logger)
 
 	r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
 		func(r chi.Router) {

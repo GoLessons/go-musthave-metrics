@@ -73,7 +73,7 @@ func run(cfg *Config) error {
 		Addr: cfg.Address,
 		Handler: loggingMiddleware(
 			storeState.Middleware(
-				router.InitRouter(metricService, storageCounter, storageGauge),
+				router.InitRouter(metricService, storageCounter, storageGauge, serverLogger),
 			),
 		),
 	}

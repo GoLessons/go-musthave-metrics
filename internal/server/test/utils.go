@@ -2,11 +2,13 @@ package test
 
 import (
 	"bytes"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
+	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,8 +26,15 @@ func NewTester(t *testing.T) *tester {
 	var testStorageCounter = storage.NewMemStorage[model.Counter]()
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
 	metricService := service.NewMetricService(testStorageCounter, testStorageGauge)
+
+	// @TODO: change on test logger
+	serverLogger, err := logger.NewLogger(zap.NewDevelopmentConfig())
+	if err != nil {
+		panic("Failed to create test logger")
+	}
+
 	return &tester{
-		testServer:         httptest.NewServer(router.InitRouter(metricService, testStorageCounter, testStorageGauge)),
+		testServer:         httptest.NewServer(router.InitRouter(metricService, testStorageCounter, testStorageGauge, serverLogger)),
 		httpClient:         http.DefaultClient,
 		testStorageCounter: testStorageCounter,
 		testStorageGauge:   testStorageGauge,
