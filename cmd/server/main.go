@@ -16,14 +16,14 @@ import (
 )
 
 type Config struct {
-	Address    string `env:"ADDRESS" envDefault:"localhost:8080"`
+	Address    string `env:"ADDRESS"`
 	DumpConfig *DumpConfig
 }
 
 type DumpConfig struct {
-	StoreInterval   uint64 `env:"STORE_INTERVAL" envDefault:"300"`
-	FileStoragePath string `env:"FILE_STORAGE_PATH" envDefault:"metric-storage.json"`
-	Restore         bool   `env:"RESTORE" envDefault:"false"`
+	StoreInterval   uint64 `env:"STORE_INTERVAL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	Restore         bool   `env:"RESTORE"`
 }
 
 func main() {
@@ -57,18 +57,18 @@ func run(cfg *Config) error {
 	var storageGauge = storage.NewMemStorage[model.Gauge]()
 
 	metricService := service.NewMetricService(storageCounter, storageGauge)
-	metricDumper := service.NewFileMetricDumper(cfg.DumpConfig.FileStoragePath)
+	dumperAndRestorer := service.NewFileMetricDumper(cfg.DumpConfig.FileStoragePath)
 
 	if cfg.DumpConfig.Restore {
-		err := service.RestoreState(metricService, metricDumper)
+		err := service.RestoreState(metricService, dumperAndRestorer)
 		if err != nil {
 			return err
 		}
-		serverLogger.Info("server state restored")
+		serverLogger.Info("server state restored", zap.String("FILE_STORAGE_PATH", cfg.DumpConfig.FileStoragePath))
 	}
 
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-	storeState := middleware.NewStoreStateMiddleware(metricService, metricDumper, cfg.DumpConfig.StoreInterval)
+	storeState := middleware.NewStoreStateMiddleware(metricService, dumperAndRestorer, cfg.DumpConfig.StoreInterval)
 	server := &http.Server{
 		Addr: cfg.Address,
 		Handler: loggingMiddleware(
@@ -79,7 +79,7 @@ func run(cfg *Config) error {
 	}
 
 	storeFunc := func() {
-		err := service.StoreState(metricService, metricDumper)
+		err := service.StoreState(metricService, dumperAndRestorer)
 		if err != nil {
 			serverLogger.Error("failed to store state", zap.Error(err))
 		}
@@ -97,16 +97,16 @@ func run(cfg *Config) error {
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
-	dumpConfig := &DumpConfig{}
-	err := env.Parse(dumpConfig)
-	if err != nil {
-		return nil, err
+	cfg := &Config{
+		Address: "localhost:8080",
+		DumpConfig: &DumpConfig{
+			StoreInterval:   300,
+			FileStoragePath: "metric-storage.json",
+			Restore:         false,
+		},
 	}
 
-	cfg := &Config{
-		DumpConfig: dumpConfig,
-	}
-	err = env.Parse(cfg)
+	err := env.Parse(cfg.DumpConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +115,11 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.DumpConfig.Restore, "restore", "r", cfg.DumpConfig.Restore, "Restore metrics before starting")
 	cmd.Flags().Uint64VarP(&cfg.DumpConfig.StoreInterval, "store-interval", "i", cfg.DumpConfig.StoreInterval, "Store interval in seconds")
 	cmd.Flags().StringVarP(&cfg.DumpConfig.FileStoragePath, "file-storage-path", "f", cfg.DumpConfig.FileStoragePath, "File storage path")
+
+	err = env.Parse(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
 }

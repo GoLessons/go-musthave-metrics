@@ -116,6 +116,8 @@ func RestoreState(metricService *MetricService, metricRestorer MetricRestorer) e
 		return fmt.Errorf("failed to restore metrics: %w", err)
 	}
 
+	fmt.Println("Restored metrics:", metrics)
+
 	for _, metric := range metrics {
 		if err := metricService.Save(metric); err != nil {
 			return fmt.Errorf("failed to save restored metric %s: %w", metric.ID, err)
