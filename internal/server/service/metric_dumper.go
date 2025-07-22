@@ -59,7 +59,8 @@ func (d *fileMetricDumper) Restore() (metrics []model.Metrics, err error) {
 	defer d.mutex.Unlock()
 
 	if _, err := os.Stat(d.filePath); os.IsNotExist(err) {
-		return metrics, err
+		// если файла нет, не ломаемся, просто нечего подгружать, стейт нулевой
+		return metrics, nil
 	}
 
 	file, err := os.OpenFile(d.filePath, os.O_RDONLY, 0644)
