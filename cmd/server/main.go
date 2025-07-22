@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
@@ -8,16 +10,20 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
-	"github.com/caarlos0/env"
-	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 type Config struct {
 	Address    string `env:"ADDRESS"`
-	DumpConfig *DumpConfig
+	DumpConfig DumpConfig
 }
 
 type DumpConfig struct {
@@ -27,30 +33,15 @@ type DumpConfig struct {
 }
 
 func main() {
-	var rootCmd = &cobra.Command{
-		Use: "server",
-	}
-
-	cfg, err := loadConfig(rootCmd)
+	cfg, err := loadConfig()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
-
-		return run(cfg)
-	}
-
-	if err := rootCmd.Execute(); err != nil {
-		panic(err)
-	}
-}
-
-func run(cfg *Config) error {
 	serverLogger, err := logger.NewLogger(zap.NewProductionConfig())
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	var storageCounter = storage.NewMemStorage[model.Counter]()
@@ -62,15 +53,24 @@ func run(cfg *Config) error {
 	if cfg.DumpConfig.Restore {
 		err := service.RestoreState(metricService, dumperAndRestorer)
 		if err != nil {
-			return err
+			panic(err)
 		}
 		serverLogger.Info("server state restored", zap.String("FILE_STORAGE_PATH", cfg.DumpConfig.FileStoragePath))
 	}
 
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
 	storeState := middleware.NewStoreStateMiddleware(metricService, dumperAndRestorer, cfg.DumpConfig.StoreInterval)
+
+	listener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer listener.Close()
+
 	server := &http.Server{
-		Addr: cfg.Address,
+		Addr:         listener.Addr().String(),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 		Handler: loggingMiddleware(
 			storeState.Middleware(
 				router.InitRouter(metricService, storageCounter, storageGauge, serverLogger),
@@ -85,41 +85,78 @@ func run(cfg *Config) error {
 		}
 		serverLogger.Info("server state saved on shutdown")
 	}
-	server.RegisterOnShutdown(storeFunc)
-	defer server.Close()
 	defer storeFunc()
 
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		return err
-	}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	return nil
+	go func() {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			serverLogger.Debug("Ошибка при работе сервера: %v", zap.Error(err))
+		}
+	}()
+
+	select {
+	case <-quit:
+		serverLogger.Debug("Получен сигнал завершения работы")
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
+		}
+		serverLogger.Debug("Сервер остановлен")
+	}
 }
 
-func loadConfig(cmd *cobra.Command) (*Config, error) {
+func loadConfig() (*Config, error) {
+	address := flag.String("address", "localhost:8080", "HTTP server address")
+	restore := flag.Bool("restore", false, "Restore metrics before starting")
+	storeInterval := flag.Uint64("store-interval", 300, "Store interval in seconds")
+	fileStoragePath := flag.String("file-storage-path", "metric-storage.json", "File storage path")
+
+	flag.StringVar(address, "a", *address, "HTTP server address (short)")
+	flag.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
+	flag.Uint64Var(storeInterval, "i", *storeInterval, "Store interval in seconds (short)")
+	flag.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
+
+	flag.Parse()
+
 	cfg := &Config{
-		Address: "localhost:8080",
-		DumpConfig: &DumpConfig{
-			StoreInterval:   300,
-			FileStoragePath: "metric-storage.json",
-			Restore:         false,
+		Address: *address,
+		DumpConfig: DumpConfig{
+			Restore:         *restore,
+			StoreInterval:   *storeInterval,
+			FileStoragePath: *fileStoragePath,
 		},
 	}
 
-	err := env.Parse(cfg.DumpConfig)
-	if err != nil {
-		return nil, err
+	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
+		cfg.Address = envAddress
 	}
 
-	cmd.Flags().StringVarP(&cfg.Address, "address", "a", cfg.Address, "HTTP server address")
-	cmd.Flags().BoolVarP(&cfg.DumpConfig.Restore, "restore", "r", cfg.DumpConfig.Restore, "Restore metrics before starting")
-	cmd.Flags().Uint64VarP(&cfg.DumpConfig.StoreInterval, "store-interval", "i", cfg.DumpConfig.StoreInterval, "Store interval in seconds")
-	cmd.Flags().StringVarP(&cfg.DumpConfig.FileStoragePath, "file-storage-path", "f", cfg.DumpConfig.FileStoragePath, "File storage path")
-
-	err = env.Parse(cfg)
-	if err != nil {
-		return nil, err
+	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
+		restoreVal, err := strconv.ParseBool(envRestore)
+		if err != nil {
+			log.Printf("Ошибка парсинга RESTORE: %v", err)
+		} else {
+			cfg.DumpConfig.Restore = restoreVal
+		}
 	}
 
+	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
+		interval, err := strconv.ParseUint(envStoreInterval, 10, 64)
+		if err != nil {
+			log.Printf("Ошибка парсинга STORE_INTERVAL: %v", err)
+		} else {
+			cfg.DumpConfig.StoreInterval = interval
+		}
+	}
+
+	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+		cfg.DumpConfig.FileStoragePath = envFileStoragePath
+	}
+
+	fmt.Printf("Конфигурация: %+v\n", *cfg)
 	return cfg, nil
 }
