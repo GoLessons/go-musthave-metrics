@@ -64,7 +64,7 @@ func run(cfg *Config) error {
 		if err != nil {
 			return err
 		}
-		serverLogger.Info("Server state restored")
+		serverLogger.Info("server state restored")
 	}
 
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
@@ -78,13 +78,16 @@ func run(cfg *Config) error {
 		),
 	}
 
-	server.RegisterOnShutdown(func() {
+	storeFunc := func() {
 		err := service.StoreState(metricService, metricDumper)
 		if err != nil {
 			serverLogger.Error("failed to store state", zap.Error(err))
 		}
-		serverLogger.Info("Server state saved on shutdown")
-	})
+		serverLogger.Info("server state saved on shutdown")
+	}
+	server.RegisterOnShutdown(storeFunc)
+	defer server.Close()
+	defer storeFunc()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		return err
