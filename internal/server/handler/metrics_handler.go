@@ -5,6 +5,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
+	"go.uber.org/zap"
 	"net/http"
 	"strconv"
 )
@@ -12,20 +13,28 @@ import (
 type metricsController struct {
 	metricService   service.MetricService
 	responseBuilder ResponseBuilder
+	logger          *zap.Logger
 }
 
 type ResponseBuilder func(*http.ResponseWriter, *model.Metrics)
 
-func NewMetricsController(metricService service.MetricService, responseBuilder ResponseBuilder) *metricsController {
+func NewMetricsController(
+	metricService service.MetricService,
+	responseBuilder ResponseBuilder,
+	logger *zap.Logger,
+) *metricsController {
 	return &metricsController{
 		metricService:   metricService,
 		responseBuilder: responseBuilder,
+		logger:          logger,
 	}
 }
 
 func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	metricData := ctx.Value(server.Metric).(model.Metrics)
+
+	h.logger.Info("Get metric", zap.Any("metric", metricData))
 
 	metric, err := h.metricService.Read(metricData.MType, metricData.ID)
 	if err != nil {
@@ -39,6 +48,8 @@ func (h *metricsController) Get(w http.ResponseWriter, r *http.Request) {
 func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	metricData := ctx.Value(server.Metric).(model.Metrics)
+
+	h.logger.Info("Updated metric", zap.Any("metric", metricData))
 
 	err := h.metricService.Save(metricData)
 	if err != nil {
