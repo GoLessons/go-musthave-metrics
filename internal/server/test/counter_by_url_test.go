@@ -8,17 +8,17 @@ import (
 )
 
 func TestCounter(t *testing.T) {
-	I := NewTester()
+	I := NewTester(t)
 	defer I.Shutdown()
 
 	for _, test := range providerTestCounter() {
-		resp, err := I.DoRequest(test.method, test.path, nil)
+		resp, err := I.DoRequest(test.method, test.path, nil, "text/plain")
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 
 		defer resp.Body.Close()
 
-		assert.Equal(t, test.status, resp.StatusCode)
+		assert.Equal(t, test.status, resp.StatusCode, test.path)
 	}
 }
 
@@ -33,9 +33,11 @@ func providerTestCounter() []testCounter {
 		{"/update/counter/test/100", http.MethodPost, http.StatusOK},
 		{"/update/counter/test/-100", http.MethodPost, http.StatusOK},
 		{"/update/counter/test/100.0", http.MethodPost, http.StatusBadRequest},
-		{"/update/counter/test/NaN", http.MethodPost, http.StatusNotFound},
+		{"/update/counter/test/NaN", http.MethodPost, http.StatusBadRequest},
 		{"/update/unknown/test/100", http.MethodPost, http.StatusBadRequest},
 		{"/update/counter/test/100", http.MethodDelete, http.StatusMethodNotAllowed},
 		{"/update/counter/test/100", http.MethodPut, http.StatusMethodNotAllowed},
+		{"/update/counter/", http.MethodPost, http.StatusNotFound},
+		{"/value/counter/testUnknown1", http.MethodGet, http.StatusNotFound},
 	}
 }
