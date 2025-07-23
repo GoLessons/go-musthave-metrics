@@ -27,10 +27,9 @@ func NewTester(t *testing.T) *tester {
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
 	metricService := service.NewMetricService(testStorageCounter, testStorageGauge)
 
-	// @TODO: change on test logger
 	serverLogger, err := logger.NewLogger(zap.NewDevelopmentConfig())
 	if err != nil {
-		panic("Failed to create test logger")
+		t.Errorf("Can't create logger: %v", err)
 	}
 
 	return &tester{
