@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16.3
+    #build:
+    #  context: ./migrations
+    #  dockerfile: ./postgres/Dockerfile
+    container_name: metric-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-metrics}
+      POSTGRES_USER: ${POSTGRES_USER:-metrics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metrics}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=ru-RU'
+      DATABASE_DSN: "user=${POSTGRES_USER:-metrics} dbname=${POSTGRES_DB:-metrics} password=${POSTGRES_PASSWORD:-metrics}"
+    ports:
+      - ${DB_PORT:-5432}:5432
+    volumes:
+    #  - pgdata:/var/lib/postgresql/data/pgdata
+      - ./database/migrations/:/migrations/:ro
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U metrics' ]
+      interval: 15s
