@@ -7,9 +7,9 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"log"
 	"net"
@@ -52,6 +52,12 @@ func main() {
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
 	storeState := middleware.NewStoreStateMiddleware(metricService, dumperAndRestorer, cfg.DumpConfig.StoreInterval)
 
+	r, err := container.GetService[chi.Mux](c, "router")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	listener, err := net.Listen("tcp", cfg.Address)
 	if err != nil {
 		log.Fatal(err)
@@ -63,9 +69,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Handler: loggingMiddleware(
-			storeState.Middleware(
-				router.InitRouter(metricService, storageCounter, storageGauge, serverLogger),
-			),
+			storeState.Middleware(r),
 		),
 	}
 
@@ -96,6 +100,4 @@ func main() {
 		serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
 	}
 	serverLogger.Debug("Сервер остановлен")
-
-	fmt.Printf("%T", 1)
 }

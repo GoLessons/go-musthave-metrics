@@ -2,15 +2,20 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
+	"github.com/GoLessons/go-musthave-metrics/pkg/container"
+	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -26,18 +31,29 @@ func NewTester(t *testing.T) *tester {
 	var testStorageCounter = storage.NewMemStorage[model.Counter]()
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
 	metricService := service.NewMetricService(testStorageCounter, testStorageGauge)
+	serverLogger, _ := logger.NewLogger(zap.NewDevelopmentConfig())
 
-	serverLogger, err := logger.NewLogger(zap.NewDevelopmentConfig())
+	c := container.NewSimpleContainer(map[string]any{
+		"logger":         serverLogger,
+		"counterStorage": testStorageCounter,
+		"gaugeStorage":   testStorageGauge,
+		"metricService":  metricService,
+	})
+	container.SimpleRegisterFactory(&c, "db", config.DbFactory())
+	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
+
+	r, err := container.GetService[chi.Mux](c, "router")
 	if err != nil {
-		t.Errorf("Can't create logger: %v", err)
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	return &tester{
-		testServer:         httptest.NewServer(router.InitRouter(metricService, testStorageCounter, testStorageGauge, serverLogger)),
-		httpClient:         http.DefaultClient,
+		t:                  t,
+		testServer:         httptest.NewServer(r),
+		httpClient:         &http.Client{},
 		testStorageCounter: testStorageCounter,
 		testStorageGauge:   testStorageGauge,
-		t:                  t,
 	}
 }
 

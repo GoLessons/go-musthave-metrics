@@ -14,7 +14,7 @@ services:
       POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=ru-RU'
       DATABASE_DSN: "user=${POSTGRES_USER:-metrics} dbname=${POSTGRES_DB:-metrics} password=${POSTGRES_PASSWORD:-metrics}"
     ports:
-      - ${DB_PORT:-5432}:5432
+      - ${DB_PORT:-15432}:5432
     volumes:
     #  - pgdata:/var/lib/postgresql/data/pgdata
       - ./database/migrations/:/migrations/:ro

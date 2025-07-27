@@ -43,23 +43,21 @@ func NewSimpleContainer(services map[string]any) simpleContainer {
 		factories: map[string]Factory[any]{},
 	}
 	for name, service := range services {
-		if _, ok := service.(Factory[any]); ok {
-			container.RegisterFactory(name, service.(Factory[any]))
-		} else {
-			container.RegisterService(name, &service)
-		}
+		container.registerService(name, &service)
 	}
 
 	return container
 }
 
-func (container simpleContainer) Get(id string) (*any, error) {
-	fmt.Printf("Get %s in %v\n", id, container.services)
+func SimpleRegisterFactory[T any](container *simpleContainer, id string, factory Factory[T]) {
+	container.registerFactory(id, func(c Container) (any, error) {
+		return factory(c)
+	})
+}
 
+func (container simpleContainer) Get(id string) (*any, error) {
 	entry, has := container.services[id]
 	if !has {
-		fmt.Printf("Not has %s in %v\n", id, container.services)
-
 		var err error
 		entry, err = container.create(id)
 		if err != nil {
@@ -73,11 +71,11 @@ func (container simpleContainer) Get(id string) (*any, error) {
 	return entry, nil
 }
 
-func (container simpleContainer) RegisterFactory(id string, factory Factory[any]) {
+func (container *simpleContainer) registerFactory(id string, factory Factory[any]) {
 	container.factories[id] = factory
 }
 
-func (container simpleContainer) RegisterService(id string, service *any) {
+func (container simpleContainer) registerService(id string, service *any) {
 	container.services[id] = service
 }
 

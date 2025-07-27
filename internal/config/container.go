@@ -3,6 +3,10 @@ package config
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"go.uber.org/zap"
 	"os"
@@ -20,10 +24,22 @@ func InitContainer() container.Container {
 		panic(err)
 	}
 
-	c := container.NewSimpleContainer(map[string]any{
-		"logger": serverLogger,
-		"config": cfg,
-	})
+	storageCounter := storage.NewMemStorage[model.Counter]()
+	storageGauge := storage.NewMemStorage[model.Gauge]()
+	metricService := service.NewMetricService(storageCounter, storageGauge)
+
+	c := container.NewSimpleContainer(
+		map[string]any{
+			"logger":         serverLogger,
+			"config":         cfg,
+			"counterStorage": storageCounter,
+			"gaugeStorage":   storageGauge,
+			"metricService":  metricService,
+		},
+	)
+
+	container.SimpleRegisterFactory(&c, "db", DbFactory())
+	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
 
 	return c
 }
