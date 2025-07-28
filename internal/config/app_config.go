@@ -34,7 +34,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
 
-	err := flags.Parse(flags.Args())
+	err := flags.Parse(os.Args[1:])
 	if err != nil {
 		return nil, err
 	}
