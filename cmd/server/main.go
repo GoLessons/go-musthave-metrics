@@ -21,8 +21,6 @@ import (
 )
 
 func main() {
-	fmt.Println("try staring server")
-
 	c := config.InitContainer()
 
 	serverLogger, err := container.GetService[zap.Logger](c, "logger")

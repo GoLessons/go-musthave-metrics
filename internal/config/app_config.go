@@ -23,7 +23,12 @@ type DumpConfig struct {
 func LoadConfig(args *map[string]any) (*Config, error) {
 	flags := flag.NewFlagSet("app-config", flag.ContinueOnError)
 
-	address := flags.String("address", "localhost:8080", "HTTP server address")
+	envAddress := os.Getenv("ADDRESS")
+	if envAddress == "" {
+		envAddress = "localhost:8080"
+	}
+
+	address := flags.String("address", envAddress, "HTTP server address")
 	restore := flags.Bool("restore", false, "Restore metrics before starting")
 	storeInterval := flags.Uint64("store-interval", 300, "Store interval in seconds")
 	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
@@ -52,10 +57,6 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			StoreInterval:   *storeInterval,
 			FileStoragePath: *fileStoragePath,
 		},
-	}
-
-	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
-		cfg.Address = envAddress
 	}
 
 	if databaseDsn := os.Getenv("DATABASE_DSN"); databaseDsn != "" {
