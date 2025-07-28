@@ -35,8 +35,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	var storageCounter = storage.NewMemStorage[model.Counter]()
-	var storageGauge = storage.NewMemStorage[model.Gauge]()
+	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	storageGauge, err := container.GetService[storage.MemStorage[model.Gauge]](c, "gaugeStorage")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	metricService := service.NewMetricService(storageCounter, storageGauge)
 	dumperAndRestorer := service.NewFileMetricDumper(cfg.DumpConfig.FileStoragePath)
