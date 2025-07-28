@@ -73,6 +73,9 @@ func main() {
 	}
 	defer listener.Close()
 
+	serverLogger.Info("server listening", zap.String("address", listener.Addr().String()))
+	serverLogger.Info("server config", zap.Any("cfg", cfg))
+
 	server := &http.Server{
 		Addr:         listener.Addr().String(),
 		ReadTimeout:  10 * time.Second,
