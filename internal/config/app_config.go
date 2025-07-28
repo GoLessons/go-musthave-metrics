@@ -40,7 +40,11 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
 
+	fmt.Println(*address)
+
 	filteredArgs := filterArgs(flags, os.Args[1:])
+
+	fmt.Printf("filteredArgs: %v\n", filteredArgs)
 
 	err := flags.Parse(filteredArgs)
 	if err != nil {
@@ -107,9 +111,17 @@ func filterArgs(flags *flag.FlagSet, args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if len(arg) > 1 && arg[0] == '-' {
-			if _, valid := validFlags[arg]; valid {
-				filteredArgs = append(filteredArgs, arg)
-				if i+1 < len(args) && args[i+1][0] != '-' {
+			splitArg := strings.SplitN(arg, "=", 2)
+			flagName := splitArg[0]
+
+			if _, valid := validFlags[flagName]; valid {
+				filteredArgs = append(filteredArgs, flagName)
+
+				if len(splitArg) > 1 {
+					// Добавляем значение если оно присутствует
+					filteredArgs = append(filteredArgs, splitArg[1])
+				} else if i+1 < len(args) && args[i+1][0] != '-' {
+					// Если значение передается отдельным аргументом, добавляем его
 					filteredArgs = append(filteredArgs, args[i+1])
 					i++ // Пропустить значение
 				}
