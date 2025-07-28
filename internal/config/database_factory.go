@@ -6,7 +6,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func DbFactory() container.Factory[*sql.DB] {
+func DBFactory() container.Factory[*sql.DB] {
 	return func(c container.Container) (*sql.DB, error) {
 		conf, err := container.GetService[Config](c, "config")
 		if err != nil {

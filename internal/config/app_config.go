@@ -19,20 +19,25 @@ type DumpConfig struct {
 	Restore         bool   `env:"RESTORE"`
 }
 
-func LoadConfig() (*Config, error) {
-	address := flag.String("address", "localhost:8080", "HTTP server address")
-	restore := flag.Bool("restore", false, "Restore metrics before starting")
-	storeInterval := flag.Uint64("store-interval", 300, "Store interval in seconds")
-	fileStoragePath := flag.String("file-storage-path", "metric-storage.json", "File storage path")
-	databaseDsn := flag.String("database-dsn", "", "Database DSN")
+func LoadConfig(args *map[string]any) (*Config, error) {
+	flags := flag.NewFlagSet("app-config", flag.ExitOnError)
 
-	flag.StringVar(address, "a", *address, "HTTP server address (short)")
-	flag.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
-	flag.Uint64Var(storeInterval, "i", *storeInterval, "Store interval in seconds (short)")
-	flag.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
-	flag.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
+	address := flags.String("address", "localhost:8080", "HTTP server address")
+	restore := flags.Bool("restore", false, "Restore metrics before starting")
+	storeInterval := flags.Uint64("store-interval", 300, "Store interval in seconds")
+	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
+	databaseDsn := flags.String("database-dsn", "", "Database DSN")
 
-	flag.Parse()
+	flags.StringVar(address, "a", *address, "HTTP server address (short)")
+	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
+	flags.Uint64Var(storeInterval, "i", *storeInterval, "Store interval in seconds (short)")
+	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
+	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
+
+	err := flags.Parse(flags.Args())
+	if err != nil {
+		return nil, err
+	}
 
 	cfg := &Config{
 		Address:     *address,
@@ -78,5 +83,41 @@ func LoadConfig() (*Config, error) {
 		cfg.DumpConfig.FileStoragePath = envFileStoragePath
 	}
 
+	if args != nil {
+		redefineLocal(args, cfg)
+	}
+
 	return cfg, nil
+}
+
+func redefineLocal(args *map[string]any, cfg *Config) {
+	if val, ok := (*args)["Address"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.Address = strVal
+		}
+	}
+
+	if val, ok := (*args)["DatabaseDsn"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.DatabaseDsn = strVal
+		}
+	}
+
+	if val, ok := (*args)["DumpConfig.Restore"]; ok {
+		if boolVal, ok := val.(bool); ok {
+			cfg.DumpConfig.Restore = boolVal
+		}
+	}
+
+	if val, ok := (*args)["DumpConfig.StoreInterval"]; ok {
+		if intValue, ok := val.(uint64); ok {
+			cfg.DumpConfig.StoreInterval = intValue
+		}
+	}
+
+	if val, ok := (*args)["DumpConfig.FileStoragePath"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.DumpConfig.FileStoragePath = strVal
+		}
+	}
 }

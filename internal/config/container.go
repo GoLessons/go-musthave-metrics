@@ -13,7 +13,7 @@ import (
 )
 
 func InitContainer() container.Container {
-	cfg, err := LoadConfig()
+	cfg, err := LoadConfig(nil)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -38,7 +38,7 @@ func InitContainer() container.Container {
 		},
 	)
 
-	container.SimpleRegisterFactory(&c, "db", DbFactory())
+	container.SimpleRegisterFactory(&c, "db", DBFactory())
 	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
 
 	return c

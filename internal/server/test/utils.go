@@ -28,6 +28,11 @@ type tester struct {
 }
 
 func NewTester(t *testing.T) *tester {
+	cfg, err := config.LoadConfig(nil)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 	var testStorageCounter = storage.NewMemStorage[model.Counter]()
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
 	metricService := service.NewMetricService(testStorageCounter, testStorageGauge)
@@ -35,11 +40,12 @@ func NewTester(t *testing.T) *tester {
 
 	c := container.NewSimpleContainer(map[string]any{
 		"logger":         serverLogger,
+		"config":         cfg,
 		"counterStorage": testStorageCounter,
 		"gaugeStorage":   testStorageGauge,
 		"metricService":  metricService,
 	})
-	container.SimpleRegisterFactory(&c, "db", config.DbFactory())
+	container.SimpleRegisterFactory(&c, "db", config.DBFactory())
 	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
 
 	r, err := container.GetService[chi.Mux](c, "router")
