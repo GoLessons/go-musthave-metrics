@@ -35,6 +35,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	serverLogger.Info("server config", zap.Any("cfg", cfg))
+
 	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -74,7 +76,6 @@ func main() {
 	defer listener.Close()
 
 	serverLogger.Info("server listening", zap.String("address", listener.Addr().String()))
-	serverLogger.Info("server config", zap.Any("cfg", cfg))
 
 	server := &http.Server{
 		Addr:         listener.Addr().String(),
