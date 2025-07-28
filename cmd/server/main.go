@@ -21,15 +21,17 @@ import (
 )
 
 func main() {
+	fmt.Println("try staring server")
+
 	c := config.InitContainer()
 
-	cfg, err := container.GetService[config.Config](c, "config")
+	serverLogger, err := container.GetService[zap.Logger](c, "logger")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	serverLogger, err := container.GetService[zap.Logger](c, "logger")
+	cfg, err := container.GetService[config.Config](c, "config")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
