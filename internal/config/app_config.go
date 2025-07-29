@@ -44,8 +44,6 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 
 	filteredArgs := filterArgs(flags, os.Args[1:])
 
-	fmt.Printf("filteredArgs: %v\n", filteredArgs)
-
 	err := flags.Parse(filteredArgs)
 	if err != nil {
 		if strings.Contains(err.Error(), "flag provided but not defined") {

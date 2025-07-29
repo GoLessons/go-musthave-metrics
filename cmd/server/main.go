@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/config"
+	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
@@ -36,6 +38,20 @@ func main() {
 	}
 
 	serverLogger.Info("server config", zap.Any("cfg", cfg))
+
+	db, err := container.GetService[sql.DB](c, "db")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}(db)
+
+	tryMigrateDb(cfg, db, serverLogger)
 
 	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
 	if err != nil {
@@ -113,4 +129,15 @@ func main() {
 		serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
 	}
 	serverLogger.Debug("Сервер остановлен")
+}
+
+func tryMigrateDb(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
+	if cfg.DatabaseDsn != "" {
+		migrator := database.NewMigrator(db, serverLogger)
+		err := migrator.Up()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
