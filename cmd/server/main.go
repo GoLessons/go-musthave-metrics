@@ -51,7 +51,7 @@ func main() {
 		}
 	}(db)
 
-	tryMigrateDb(cfg, db, serverLogger)
+	tryMigrateDB(cfg, db, serverLogger)
 
 	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
 	if err != nil {
@@ -142,7 +142,7 @@ func main() {
 	serverLogger.Debug("Сервер остановлен")
 }
 
-func tryMigrateDb(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
+func tryMigrateDB(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
 	if cfg.DatabaseDsn != "" {
 		migrator := database.NewMigrator(db, serverLogger)
 		err := migrator.Up()
