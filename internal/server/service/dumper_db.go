@@ -80,10 +80,7 @@ func (r *dbMetricRestorer) Restore() ([]model.Metrics, error) {
 		return nil, fmt.Errorf("failed to query metrics: %w", err)
 	}
 	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-
-		}
+		_ = rows.Close()
 	}(rows)
 
 	queryString, args, err := query.ToSql()
