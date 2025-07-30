@@ -24,6 +24,7 @@ import (
 
 func main() {
 	c := config.InitContainer()
+	mainCtx := context.Background()
 
 	serverLogger, err := container.GetService[zap.Logger](c, "logger")
 	if err != nil {
@@ -37,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	serverLogger.Info("server config", zap.Any("cfg", cfg))
+	serverLogger.Info("Server config", zap.Any("cfg", cfg))
 
 	db, err := container.GetService[sql.DB](c, "db")
 	if err != nil {
@@ -88,7 +89,6 @@ func main() {
 	}
 
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-	storeState := middleware.NewStoreStateMiddleware(metricService, *dumper, cfg.DumpConfig.StoreInterval)
 
 	r, err := container.GetService[chi.Mux](c, "router")
 	if err != nil {
@@ -108,19 +108,17 @@ func main() {
 		Addr:         listener.Addr().String(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
-		Handler: loggingMiddleware(
-			storeState.Middleware(r),
-		),
+		Handler:      loggingMiddleware(r),
 	}
 
 	storeFunc := func() {
 		err := service.StoreState(metricService, *dumper)
 		if err != nil {
-			serverLogger.Error("failed to store state", zap.Error(err))
+			serverLogger.Error("Ошибка сохранения состояния", zap.Error(err))
+			return
 		}
-		serverLogger.Info("server state saved on shutdown")
+		serverLogger.Info("Состояние сервера сохранено")
 	}
-	defer storeFunc()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -131,9 +129,11 @@ func main() {
 		}
 	}()
 
+	go iterateFunc(mainCtx, cfg.DumpConfig.StoreInterval, storeFunc)
+
 	<-quit
 	serverLogger.Debug("Получен сигнал завершения работы")
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(mainCtx, 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
@@ -149,6 +149,21 @@ func tryMigrateDB(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
 		if err != nil {
 			fmt.Printf("Magrations error: %v\n", err)
 			os.Exit(1)
+		}
+	}
+}
+
+func iterateFunc(ctx context.Context, interval uint64, callable func()) {
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			callable()
+			return
+		case <-ticker.C:
+			callable()
 		}
 	}
 }

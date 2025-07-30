@@ -7,7 +7,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/Masterminds/squirrel"
 	"go.uber.org/zap"
-	"log"
 	"sync"
 )
 
@@ -82,12 +81,6 @@ func (r *dbMetricRestorer) Restore() ([]model.Metrics, error) {
 	defer func(rows *sql.Rows) {
 		_ = rows.Close()
 	}(rows)
-
-	queryString, args, err := query.ToSql()
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("%s %v", queryString, args)
 
 	metrics, err := r.hydrate(rows)
 	if err != nil {
