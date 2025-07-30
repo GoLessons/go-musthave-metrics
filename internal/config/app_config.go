@@ -40,8 +40,6 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
 
-	fmt.Println(*address)
-
 	filteredArgs := filterArgs(flags, os.Args[1:])
 
 	err := flags.Parse(filteredArgs)
