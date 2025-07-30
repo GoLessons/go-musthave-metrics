@@ -1,4 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS "metrics" AUTHORIZATION "metrics";
+CREATE SCHEMA IF NOT EXISTS "metrics";
 
 CREATE TABLE IF NOT EXISTS "metrics"."metrics" (
     "name" text NOT NULL,
