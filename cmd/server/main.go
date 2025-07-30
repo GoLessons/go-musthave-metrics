@@ -147,7 +147,7 @@ func tryMigrateDB(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
 		migrator := database.NewMigrator(db, serverLogger)
 		err := migrator.Up()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf("Magrations error: %v\n", err)
 			os.Exit(1)
 		}
 	}
