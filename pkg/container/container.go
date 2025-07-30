@@ -79,6 +79,16 @@ func (container simpleContainer) registerService(id string, service *any) {
 	container.services[id] = service
 }
 
+func (container simpleContainer) Alias(id string, as string) error {
+	service, err := container.Get(id)
+	if err != nil {
+		return err
+	}
+
+	container.registerService(as, service)
+	return nil
+}
+
 func (container simpleContainer) create(id string) (*any, error) {
 	factory, ok := container.factories[id]
 	if !ok {

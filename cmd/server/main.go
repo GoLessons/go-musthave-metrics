@@ -66,18 +66,29 @@ func main() {
 	}
 
 	metricService := service.NewMetricService(storageCounter, storageGauge)
-	dumperAndRestorer := service.NewFileMetricDumper(cfg.DumpConfig.FileStoragePath)
 
+	restorer, err := container.GetService[service.MetricRestorer](c, "restorer")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 	if cfg.DumpConfig.Restore {
-		err := service.RestoreState(metricService, dumperAndRestorer)
+		err := service.RestoreState(metricService, *restorer)
 		if err != nil {
-			panic(err)
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
 		serverLogger.Info("server state restored", zap.String("FILE_STORAGE_PATH", cfg.DumpConfig.FileStoragePath))
 	}
 
+	dumper, err := container.GetService[service.MetricDumper](c, "dumper")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-	storeState := middleware.NewStoreStateMiddleware(metricService, dumperAndRestorer, cfg.DumpConfig.StoreInterval)
+	storeState := middleware.NewStoreStateMiddleware(metricService, *dumper, cfg.DumpConfig.StoreInterval)
 
 	r, err := container.GetService[chi.Mux](c, "router")
 	if err != nil {
@@ -103,7 +114,7 @@ func main() {
 	}
 
 	storeFunc := func() {
-		err := service.StoreState(metricService, dumperAndRestorer)
+		err := service.StoreState(metricService, *dumper)
 		if err != nil {
 			serverLogger.Error("failed to store state", zap.Error(err))
 		}

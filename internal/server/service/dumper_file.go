@@ -54,16 +54,28 @@ func (d *fileMetricDumper) Dump(metrics []model.Metrics) error {
 	return nil
 }
 
-func (d *fileMetricDumper) Restore() (metrics []model.Metrics, err error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+// Новая структура для реализации интерфейса MetricRestorer
+type fileMetricRestorer struct {
+	filePath string
+	mutex    sync.Mutex
+}
 
-	if _, err := os.Stat(d.filePath); os.IsNotExist(err) {
+func NewFileMetricRestorer(filePath string) *fileMetricRestorer {
+	return &fileMetricRestorer{
+		filePath: filePath,
+	}
+}
+
+func (r *fileMetricRestorer) Restore() (metrics []model.Metrics, err error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if _, err := os.Stat(r.filePath); os.IsNotExist(err) {
 		// если файла нет, не ломаемся, просто нечего подгружать, стейт нулевой
 		return metrics, nil
 	}
 
-	file, err := os.OpenFile(d.filePath, os.O_RDONLY, 0644)
+	file, err := os.OpenFile(r.filePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}

@@ -15,13 +15,14 @@ import (
 func InitContainer() container.Container {
 	cfg, err := LoadConfig(nil)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("DI Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	serverLogger, err := logger.NewLogger(zap.NewProductionConfig())
 	if err != nil {
-		panic(err)
+		fmt.Printf("DI Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	storageCounter := storage.NewMemStorage[model.Counter]()
@@ -40,6 +41,8 @@ func InitContainer() container.Container {
 
 	container.SimpleRegisterFactory(&c, "db", DBFactory())
 	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
+	container.SimpleRegisterFactory(&c, "dumper", MetricDumperFactory())
+	container.SimpleRegisterFactory(&c, "restorer", MetricRestorerFactory())
 
 	return c
 }
