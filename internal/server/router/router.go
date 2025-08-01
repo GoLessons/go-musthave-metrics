@@ -68,6 +68,16 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			})
 		})
 
+		r.Route("/updates", func(r chi.Router) {
+			r.Use(middleware.ValidateRoute)
+			r.Use(middleware.GzipMiddleware)
+			r.Use(middleware.MetricsListCtxFromBody)
+			r.Post("/", metricControllerJSON.UpdateBatch)
+			r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "Not Found", http.StatusNotFound)
+			})
+		})
+
 		r.Route("/value",
 			func(r chi.Router) {
 				r.Use(middleware.GzipMiddleware)

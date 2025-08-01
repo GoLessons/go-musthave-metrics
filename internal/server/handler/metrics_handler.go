@@ -59,6 +59,23 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *metricsController) UpdateBatch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	metricsArray := ctx.Value(server.MetricsList).([]model.Metrics)
+
+	h.logger.Info("Updated metrics batch", zap.Int("count", len(metricsArray)))
+
+	for _, metricData := range metricsArray {
+		err := h.metricService.Save(metricData)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func JSONResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
 	responseBody, err := json.Marshal(metric)
 	if err != nil {

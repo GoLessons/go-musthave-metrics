@@ -98,6 +98,7 @@ func (tester *tester) DoRequest(method string, endpoint string, body interface{}
 		}
 
 		if testing.Verbose() {
+			tester.t.Logf("RAW data: %v", body)
 			tester.t.Logf("JSON data: %s", string(jsonData))
 		}
 

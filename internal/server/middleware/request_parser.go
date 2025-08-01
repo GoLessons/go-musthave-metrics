@@ -65,3 +65,25 @@ func MetricCtxFromBody(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+func MetricsListCtxFromBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		var metrics []model.Metrics
+		err = json.Unmarshal(body, &metrics)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, server.MetricsList, metrics)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
