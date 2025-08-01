@@ -54,9 +54,9 @@ func (mc *MetricCollector) Close() {
 	mc.sender.Close()
 }
 
-func (mc *MetricCollector) CollectAndSendMetrics() {
+func (mc *MetricCollector) CollectAndSendMetrics(batch bool) {
 	for {
-		err := mc.handle()
+		err := mc.handle(batch)
 		if err != nil {
 			fmt.Printf("metrics handling failed: %v\n", err)
 		}
@@ -65,10 +65,10 @@ func (mc *MetricCollector) CollectAndSendMetrics() {
 	}
 }
 
-func (mc *MetricCollector) handle() error {
+func (mc *MetricCollector) handle(batch bool) error {
 	isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
 
-	err := mc.handleMemStats(isNeedSend)
+	err := mc.handleMemStats(isNeedSend && !batch)
 	if err != nil {
 		return fmt.Errorf("can't handle metrics: %w", err)
 	}
@@ -87,30 +87,90 @@ func (mc *MetricCollector) handle() error {
 	}
 
 	if isNeedSend {
-		err := mc.sender.Send(model.Metrics{
-			ID:    RandomValue,
-			MType: model.Gauge,
-			Value: (*float64)(&randomValue),
-		})
-		if err != nil {
-			return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
-		}
+		if batch {
+			// Собираем все метрики в один массив
+			metrics := []model.Metrics{}
 
-		poolCount := mc.pollCounter.Count()
-		err = mc.sender.Send(model.Metrics{
-			ID:    PollCount,
-			MType: model.Counter,
-			Delta: (*int64)(&poolCount),
-		})
+			// Добавляем RandomValue
+			metrics = append(metrics, model.Metrics{
+				ID:    RandomValue,
+				MType: model.Gauge,
+				Value: (*float64)(&randomValue),
+			})
 
-		if err != nil {
-			return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
+			// Добавляем PollCount
+			poolCount := mc.pollCounter.Count()
+			metrics = append(metrics, model.Metrics{
+				ID:    PollCount,
+				MType: model.Counter,
+				Delta: (*int64)(&poolCount),
+			})
+
+			// Добавляем все метрики из memStats
+			mc.memStatReader.Refresh()
+			for _, metricName := range mc.memStatReader.SupportedMetrics() {
+				metricVal, ok := mc.memStatReader.Get(metricName)
+				if !ok {
+					return fmt.Errorf("can't read metric: %s", metricName)
+				}
+
+				metrics = append(metrics, model.Metrics{
+					ID:    metricName,
+					MType: model.Gauge,
+					Value: &metricVal,
+				})
+			}
+
+			// Отправляем все метрики пакетом
+			err = mc.sendMetricsBatch(metrics)
+			if err != nil {
+				return fmt.Errorf("can't send metrics batch: %w", err)
+			}
+		} else {
+			// Отправляем метрики по одной (старое поведение)
+			err := mc.sender.Send(model.Metrics{
+				ID:    RandomValue,
+				MType: model.Gauge,
+				Value: (*float64)(&randomValue),
+			})
+			if err != nil {
+				return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
+			}
+
+			poolCount := mc.pollCounter.Count()
+			err = mc.sender.Send(model.Metrics{
+				ID:    PollCount,
+				MType: model.Counter,
+				Delta: (*int64)(&poolCount),
+			})
+
+			if err != nil {
+				return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
+			}
 		}
 
 		mc.lastLogTime = time.Now()
 
 		// если все метрики успешно отправлены серверу, сбрасываем счётчик
 		mc.pollCounter.Reset()
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
+	// Проверяем, является ли sender экземпляром jsonSender
+	if jsonSender, ok := mc.sender.(*jsonSender); ok {
+		// Если да, используем метод SendBatch
+		return jsonSender.SendBatch(metrics)
+	}
+
+	// Если нет, отправляем метрики по одной
+	for _, metric := range metrics {
+		err := mc.sender.Send(metric)
+		if err != nil {
+			return fmt.Errorf("can't send metric: %s\n%w", metric.ID, err)
+		}
 	}
 
 	return nil

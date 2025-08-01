@@ -86,6 +86,49 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 	return nil
 }
 
+func (sender *jsonSender) SendBatch(metrics []model.Metrics) error {
+	client := sender.client
+	request := client.R()
+
+	if sender.enableGzip {
+		request.SetHeader("Content-Encoding", "gzip")
+		request.SetHeader("Accept-Encoding", "gzip")
+
+		body, err := json.Marshal(metrics)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metrics: %w", err)
+		}
+
+		var buf bytes.Buffer
+		gzipWriter := gzip.NewWriter(&buf)
+
+		_, err = gzipWriter.Write(body)
+		if err != nil {
+			return fmt.Errorf("failed to compress request body: %w", err)
+		}
+
+		err = gzipWriter.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close gzip writer: %w", err)
+		}
+
+		request.SetBody(buf.Bytes())
+	} else {
+		request.SetBody(metrics)
+	}
+
+	resp, err := request.Post("/updates")
+	if err != nil {
+		return fmt.Errorf("can't send metrics batch: %w", err)
+	}
+
+	if resp.IsError() {
+		return fmt.Errorf("can't send metrics batch, response: %s", resp.String())
+	}
+
+	return nil
+}
+
 func (sender *jsonSender) Close() {
 	defer sender.client.Close()
 }
