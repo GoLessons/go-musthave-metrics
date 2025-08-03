@@ -127,15 +127,6 @@ func main() {
 		Handler:      loggingMiddleware(r),
 	}
 
-	storeFunc := func() {
-		err := service.StoreState(metricService, *dumper)
-		if err != nil {
-			serverLogger.Error("Ошибка сохранения состояния", zap.Error(err))
-			return
-		}
-		serverLogger.Info("Состояние сервера сохранено")
-	}
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
@@ -145,7 +136,9 @@ func main() {
 		}
 	}()
 
-	go iterateFunc(mainCtx, cfg.DumpConfig.StoreInterval, storeFunc)
+	go iterateFunc(mainCtx, cfg.DumpConfig.StoreInterval, func() {
+		storeMetrics(serverLogger, metricService, dumper)
+	})
 
 	<-quit
 	serverLogger.Debug("Получен сигнал завершения работы")
@@ -156,6 +149,30 @@ func main() {
 		serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
 	}
 	serverLogger.Debug("Сервер остановлен")
+}
+
+func storeMetrics(serverLogger *zap.Logger, metricService *service.MetricService, dumper *service.MetricDumper) {
+	try := repeater.NewRepeater(func(err error) {
+		serverLogger.Error("Ошибка сохранения состояния", zap.Error(err))
+	})
+	repeatStrategy := repeater.NewFixedDelaysStrategy(
+		database.NewPostgresErrorClassifier().IsRetriable,
+		time.Second*1,
+		time.Second*3,
+		time.Second*5,
+	)
+	_, err := try.Repeat(
+		repeatStrategy,
+		func() (any, error) {
+			err := service.StoreState(metricService, *dumper)
+			return nil, err
+		},
+	)
+	if err != nil {
+		serverLogger.Error("Ошибка сохранения состояния после повторов", zap.Error(err))
+		return
+	}
+	serverLogger.Info("Состояние сервера сохранено")
 }
 
 func tryMigrateDB(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
