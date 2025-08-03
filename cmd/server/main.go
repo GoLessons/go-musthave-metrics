@@ -11,6 +11,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"log"
@@ -74,7 +75,22 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.DumpConfig.Restore {
-		err := service.RestoreState(metricService, *restorer)
+		try := repeater.NewRepeater(func(err error) {
+			serverLogger.Info("Неудачная попытка восстановить состояние", zap.Error(err))
+		})
+		repeatStrategy := repeater.NewFixedDelaysStrategy(
+			database.NewPostgresErrorClassifier().IsRetriable,
+			time.Second*1,
+			time.Second*3,
+			time.Second*5,
+		)
+		_, err := try.Repeat(
+			repeatStrategy,
+			func() (any, error) {
+				err := service.RestoreState(metricService, *restorer)
+				return nil, err
+			},
+		)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)

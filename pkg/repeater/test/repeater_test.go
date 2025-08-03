@@ -35,13 +35,13 @@ func TestRepeatSuccessAfterRetry(t *testing.T) {
 		if callCount < 2 {
 			return nil, errors.New("временная ошибка")
 		}
-		return "success after retry", nil
+		return "success", nil
 	}
 
 	result, err := r.Repeat(strategy, action)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "success after retry", result)
+	assert.Equal(t, "success", result)
 	assert.Equal(t, 2, callCount, "Action должен быть вызван дважды")
 }
 
@@ -66,7 +66,7 @@ func TestRepeatFailAllAttempts(t *testing.T) {
 
 func TestRepeatWithOnErrorCallback(t *testing.T) {
 	callbackCalled := 0
-	onError := func() {
+	onError := func(err error) {
 		callbackCalled++
 	}
 
@@ -92,13 +92,13 @@ func TestRepeatWithInfiniteAttempts(t *testing.T) {
 		if callCount < 10 {
 			return nil, errors.New("временная ошибка")
 		}
-		return "success after many retries", nil
+		return "success", nil
 	}
 
 	result, err := r.Repeat(strategy, action)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "success after many retries", result)
+	assert.Equal(t, "success", result)
 	assert.Equal(t, 10, callCount, "Action должен быть вызван 10 раз")
 }
 

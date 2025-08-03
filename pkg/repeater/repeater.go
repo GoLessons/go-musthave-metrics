@@ -18,7 +18,7 @@ type Strategy interface {
 
 type Action func() (any, error)
 
-type OnError func()
+type OnError func(err error)
 
 func (r *repeater) Repeat(strategy Strategy, action Action) (result any, err error) {
 	attempts := strategy.Attempts()
@@ -27,7 +27,7 @@ func (r *repeater) Repeat(strategy Strategy, action Action) (result any, err err
 		result, err = action()
 		if err != nil {
 			for _, onError := range r.onError {
-				onError()
+				onError(err)
 			}
 
 			if !strategy.Retriable(err) {
