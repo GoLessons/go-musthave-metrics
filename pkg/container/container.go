@@ -35,7 +35,7 @@ func wrapError(err error) error {
 
 func (e *ContainerError) Error() string {
 	if e.err != nil && e.err.Error() != e.Error() {
-		return fmt.Sprintf("[CONTAINER] %s (previous: %w)", e.Msg, e.err)
+		return fmt.Sprintf("[CONTAINER] %s (previous: %v)", e.Msg, e.err)
 	}
 
 	return fmt.Sprintf("[CONTAINER] %s", e.Msg)
