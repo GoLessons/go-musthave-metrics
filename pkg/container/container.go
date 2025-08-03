@@ -20,6 +20,7 @@ type Factory[T any] func(container Container) (T, error)
 
 type ContainerError struct {
 	Msg string
+	err error
 }
 
 func Error(format string, a ...any) error {
@@ -28,8 +29,20 @@ func Error(format string, a ...any) error {
 	}
 }
 
-func (e ContainerError) Error() string {
-	return fmt.Sprintf("container error: %s", e.Msg)
+func wrapError(err error) error {
+	return &ContainerError{err.Error(), err}
+}
+
+func (e *ContainerError) Error() string {
+	if e.err != nil && e.err.Error() != e.Error() {
+		return fmt.Sprintf("[CONTAINER] %s (previous: %w)", e.Msg, e.err)
+	}
+
+	return fmt.Sprintf("[CONTAINER] %s", e.Msg)
+}
+
+func (e *ContainerError) Unwrap() error {
+	return e.err
 }
 
 type simpleContainer struct {

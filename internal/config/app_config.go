@@ -20,6 +20,33 @@ type DumpConfig struct {
 	Restore         bool   `env:"RESTORE"`
 }
 
+type ConfigError struct {
+	Msg string
+	err error
+}
+
+func Error(format string, a ...any) error {
+	return &ConfigError{
+		Msg: fmt.Sprintf(format, a...),
+	}
+}
+
+func wrapError(msg string, err error) error {
+	return &ConfigError{msg, err}
+}
+
+func (e *ConfigError) Error() string {
+	if e.err != nil && e.err.Error() != e.Error() {
+		return fmt.Sprintf("[CONFIG] %s (previous: %w)", e.Msg, e.err)
+	}
+
+	return fmt.Sprintf("[CONFIG] %s", e.Msg)
+}
+
+func (e *ConfigError) Unwrap() error {
+	return e.err
+}
+
 func LoadConfig(args *map[string]any) (*Config, error) {
 	flags := flag.NewFlagSet("app-config", flag.ContinueOnError)
 
@@ -63,14 +90,10 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		cfg.DatabaseDsn = databaseDsn
 	}
 
-	/*if cfg.DatabaseDsn == "" {
-		return nil, errors.New("укажите DSN для подключения к базе данных")
-	}*/
-
 	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 		restoreVal, err := strconv.ParseBool(envRestore)
 		if err != nil {
-			return nil, fmt.Errorf("ошибка парсинга RESTORE: %v", err)
+			return nil, wrapError("ошибка парсинга RESTORE", err)
 		} else {
 			cfg.DumpConfig.Restore = restoreVal
 		}
@@ -79,7 +102,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
 		interval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("ошибка парсинга STORE_INTERVAL: %v", err)
+			return nil, wrapError("ошибка парсинга STORE_INTERVAL", err)
 		} else {
 			cfg.DumpConfig.StoreInterval = interval
 		}
