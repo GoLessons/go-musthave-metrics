@@ -76,11 +76,11 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 
 	resp, err := request.Post("/update")
 	if err != nil {
-		return fmt.Errorf("can't send metric: %s (type: %s): %w", metric.ID, metric.MType, err)
+		return WrapSendError(0, fmt.Sprintf("can't send metric: %s (type: %s)", metric.ID, metric.MType), err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("can't send metric: %s (type: %s), response: %s", metric.ID, metric.MType, resp.String())
+		return NewSendError(resp.StatusCode(), "can't send metric: %s (type: %s), response: %s", metric.ID, metric.MType, resp.String())
 	}
 
 	return nil
@@ -119,11 +119,11 @@ func (sender *jsonSender) SendBatch(metrics []model.Metrics) error {
 
 	resp, err := request.Post("/updates")
 	if err != nil {
-		return fmt.Errorf("can't send metrics batch: %w", err)
+		return WrapSendError(0, "can't send metrics batch", err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("can't send metrics batch, response: %s", resp.String())
+		return NewSendError(resp.StatusCode(), "can't send metrics batch, response: %s", resp.String())
 	}
 
 	return nil
