@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"time"
 )
 
@@ -87,6 +88,16 @@ func (mc *MetricCollector) handle(batch bool) error {
 	}
 
 	if isNeedSend {
+		try := repeater.NewRepeater(func(err error) {
+			fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
+		})
+		repeatStrategy := repeater.NewFixedDelaysStrategy(
+			NewAgentErrorClassifier().IsRetriable,
+			time.Second*1,
+			time.Second*3,
+			time.Second*5,
+		)
+
 		if batch {
 			// Собираем все метрики в один массив
 			metrics := []model.Metrics{}
@@ -120,32 +131,43 @@ func (mc *MetricCollector) handle(batch bool) error {
 					Value: &metricVal,
 				})
 			}
-
-			// Отправляем все метрики пакетом
-			err = mc.sendMetricsBatch(metrics)
+			_, err := try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					return nil, mc.sendMetricsBatch(metrics)
+				},
+			)
 			if err != nil {
-				return fmt.Errorf("can't send metrics batch: %w", err)
+				return fmt.Errorf("can't send metrics batch after retries: %w", err)
 			}
 		} else {
-			// Отправляем метрики по одной (старое поведение)
-			err := mc.sender.Send(model.Metrics{
-				ID:    RandomValue,
-				MType: model.Gauge,
-				Value: (*float64)(&randomValue),
-			})
+			_, err := try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					return nil, mc.sender.Send(model.Metrics{
+						ID:    RandomValue,
+						MType: model.Gauge,
+						Value: (*float64)(&randomValue),
+					})
+				},
+			)
 			if err != nil {
-				return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
+				return fmt.Errorf("can't send metric after retries: %s\n%w", RandomValue, err)
 			}
 
 			poolCount := mc.pollCounter.Count()
-			err = mc.sender.Send(model.Metrics{
-				ID:    PollCount,
-				MType: model.Counter,
-				Delta: (*int64)(&poolCount),
-			})
-
+			_, err = try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					return nil, mc.sender.Send(model.Metrics{
+						ID:    PollCount,
+						MType: model.Counter,
+						Delta: (*int64)(&poolCount),
+					})
+				},
+			)
 			if err != nil {
-				return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
+				return fmt.Errorf("can't send metric after retries: %s\n%w", PollCount, err)
 			}
 		}
 
@@ -191,13 +213,27 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 		}
 
 		if isNeedSend {
-			err := mc.sender.Send(model.Metrics{
-				ID:    metricName,
-				MType: model.Gauge,
-				Value: &metricVal,
+			try := repeater.NewRepeater(func(err error) {
+				fmt.Printf("Ошибка отправки метрики %s: %v\n", metricName, err)
 			})
+			repeatStrategy := repeater.NewFixedDelaysStrategy(
+				NewAgentErrorClassifier().IsRetriable,
+				time.Second*1,
+				time.Second*3,
+				time.Second*5,
+			)
+			_, err := try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					return nil, mc.sender.Send(model.Metrics{
+						ID:    metricName,
+						MType: model.Gauge,
+						Value: &metricVal,
+					})
+				},
+			)
 			if err != nil {
-				return fmt.Errorf("can't send metric: %s\n%v", metricName, err)
+				return fmt.Errorf("can't send metric after retries: %s\n%v", metricName, err)
 			}
 		}
 	}
