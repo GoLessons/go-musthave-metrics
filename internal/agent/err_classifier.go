@@ -35,9 +35,10 @@ func WrapSendError(code int, msg string, err error) error {
 }
 
 func (e *SendError) Error() string {
-	if e.err != nil && e.err.Error() != e.Error() {
+	if e.err != nil {
 		return fmt.Sprintf("%s (code: %d, previous: %v)", e.Msg, e.Code, e.err)
 	}
+
 	return fmt.Sprintf("%s (code: %d)", e.Msg, e.Code)
 }
 
