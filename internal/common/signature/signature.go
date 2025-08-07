@@ -6,15 +6,15 @@ import (
 	"encoding/hex"
 )
 
-type sign struct {
+type Signer struct {
 	key string
 }
 
-func NewSign(secret string) *sign {
-	return &sign{key: secret}
+func NewSign(secret string) *Signer {
+	return &Signer{key: secret}
 }
 
-func (sign *sign) Hash(message []byte) (hash string, err error) {
+func (sign *Signer) Hash(message []byte) (hash string, err error) {
 	h := hmac.New(sha256.New, []byte(sign.key))
 
 	_, err = h.Write(message)
@@ -26,7 +26,7 @@ func (sign *sign) Hash(message []byte) (hash string, err error) {
 	return hash, nil
 }
 
-func (sign *sign) Check(hash string, message []byte) bool {
+func (sign *Signer) Check(hash string, message []byte) bool {
 	h := hmac.New(sha256.New, []byte(sign.key))
 	_, err := h.Write(message)
 	if err != nil {

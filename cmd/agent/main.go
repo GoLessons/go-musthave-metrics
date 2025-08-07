@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ type Config struct {
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
 	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
 	Batch          bool   `env:"BATCH" envDefault:"false"`
+	Key            string `env:"KEY" envDefault:""`
 }
 
 func main() {
@@ -72,16 +74,22 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
 	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
 	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
+	cmd.Flags().StringVarP(&cfg.Key, "key", "k", cfg.Key, "Key for signing metrics")
 
 	return cfg, nil
 }
 
 func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 	var sender agent.Sender
+
 	if cfg.Plain {
 		sender = agent.NewMetricURLSender(cfg.Address)
 	} else {
-		sender = agent.NewJSONSender(cfg.Address, cfg.EnableGzip)
+		var signer *signature.Signer
+		if cfg.Key != "" {
+			signer = signature.NewSign(cfg.Key)
+		}
+		sender = agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer)
 	}
 
 	return agent.NewMetricCollector(

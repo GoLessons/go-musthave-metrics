@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/goccy/go-json"
 	"net/http"
@@ -13,9 +14,10 @@ import (
 type jsonSender struct {
 	client     *resty.Client
 	enableGzip bool
+	signer     *signature.Signer
 }
 
-func NewJSONSender(address string, enableGzip bool) *jsonSender {
+func NewJSONSender(address string, enableGzip bool, signer *signature.Signer) *jsonSender {
 	client := resty.New().SetTransport(&http.Transport{
 		DisableCompression: true,
 	})
@@ -26,6 +28,7 @@ func NewJSONSender(address string, enableGzip bool) *jsonSender {
 	return &jsonSender{
 		client:     client,
 		enableGzip: enableGzip,
+		signer:     signer,
 	}
 }
 
@@ -46,6 +49,9 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 	}
 
 	request := client.R()
+
+	var body []byte
+	var err error
 
 	if sender.enableGzip {
 		request.SetHeader("Content-Encoding", "gzip")
@@ -71,7 +77,20 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 
 		request.SetBody(buf.Bytes())
 	} else {
+		body, err = json.Marshal(metric)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metric: %w", err)
+		}
 		request.SetBody(metric)
+	}
+
+	// Добавляем подпись, если signer не nil
+	if sender.signer != nil {
+		hash, err := sender.signer.Hash(body)
+		if err != nil {
+			return fmt.Errorf("failed to calculate hash: %w", err)
+		}
+		request.SetHeader("HashSHA256", hash)
 	}
 
 	resp, err := request.Post("/update")
