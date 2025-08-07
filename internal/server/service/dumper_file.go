@@ -53,38 +53,3 @@ func (d *fileMetricDumper) Dump(metrics []model.Metrics) error {
 
 	return nil
 }
-
-// Новая структура для реализации интерфейса MetricRestorer
-type fileMetricRestorer struct {
-	filePath string
-	mutex    sync.Mutex
-}
-
-func NewFileMetricRestorer(filePath string) *fileMetricRestorer {
-	return &fileMetricRestorer{
-		filePath: filePath,
-	}
-}
-
-func (r *fileMetricRestorer) Restore() (metrics []model.Metrics, err error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if _, err := os.Stat(r.filePath); os.IsNotExist(err) {
-		// если файла нет, не ломаемся, просто нечего подгружать, стейт нулевой
-		return metrics, nil
-	}
-
-	file, err := os.OpenFile(r.filePath, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&metrics); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metrics: %w", err)
-	}
-
-	return metrics, nil
-}
