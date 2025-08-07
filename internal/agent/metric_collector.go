@@ -18,6 +18,11 @@ type Sender interface {
 	Close()
 }
 
+type BatchSender interface {
+	SendBatch(metrics []model.Metrics) error
+	Sender
+}
+
 type MetricCollector struct {
 	gaugeStorage   storage.Storage[GaugeValue]
 	counterStorage storage.Storage[CounterValue]
@@ -67,127 +72,96 @@ func (mc *MetricCollector) CollectAndSendMetrics(batch bool) {
 }
 
 func (mc *MetricCollector) handle(batch bool) error {
+	err := mc.collectAllMetrics()
+	if err != nil {
+		return fmt.Errorf("can't collect metrics: %w", err)
+	}
+
 	isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
-
-	err := mc.handleMemStats(isNeedSend && !batch)
-	if err != nil {
-		return fmt.Errorf("can't handle metrics: %w", err)
-	}
-
-	mc.pollCounter.Increment()
-
-	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
-	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
-	}
-
-	randomValue := mc.randomizer.Randomize()
-	err = mc.gaugeStorage.Set(RandomValue, randomValue)
-	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
-	}
-
 	if isNeedSend {
-		try := repeater.NewRepeater(func(err error) {
-			fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
-		})
-		repeatStrategy := repeater.NewFixedDelaysStrategy(
-			NewAgentErrorClassifier().IsRetriable,
-			time.Second*1,
-			time.Second*3,
-			time.Second*5,
-		)
+		metrics, err := mc.fetchAllMetrics()
+		if err != nil {
+			return fmt.Errorf("can't fetch metrics: %w", err)
+		}
 
 		if batch {
-			// Собираем все метрики в один массив
-			metrics := []model.Metrics{}
-
-			// Добавляем RandomValue
-			metrics = append(metrics, model.Metrics{
-				ID:    RandomValue,
-				MType: model.Gauge,
-				Value: (*float64)(&randomValue),
-			})
-
-			// Добавляем PollCount
-			poolCount := mc.pollCounter.Count()
-			metrics = append(metrics, model.Metrics{
-				ID:    PollCount,
-				MType: model.Counter,
-				Delta: (*int64)(&poolCount),
-			})
-
-			// Добавляем все метрики из memStats
-			mc.memStatReader.Refresh()
-			for _, metricName := range mc.memStatReader.SupportedMetrics() {
-				metricVal, ok := mc.memStatReader.Get(metricName)
-				if !ok {
-					return fmt.Errorf("can't read metric: %s", metricName)
-				}
-
-				metrics = append(metrics, model.Metrics{
-					ID:    metricName,
-					MType: model.Gauge,
-					Value: &metricVal,
-				})
-			}
-			_, err := try.Repeat(
-				repeatStrategy,
-				func() (any, error) {
-					return nil, mc.sendMetricsBatch(metrics)
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("can't send metrics batch after retries: %w", err)
-			}
+			err = mc.handleBatchMode(metrics)
 		} else {
-			_, err := try.Repeat(
-				repeatStrategy,
-				func() (any, error) {
-					return nil, mc.sender.Send(model.Metrics{
-						ID:    RandomValue,
-						MType: model.Gauge,
-						Value: (*float64)(&randomValue),
-					})
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("can't send metric after retries: %s\n%w", RandomValue, err)
-			}
+			err = mc.handleSingleMode(metrics)
+		}
 
-			poolCount := mc.pollCounter.Count()
-			_, err = try.Repeat(
-				repeatStrategy,
-				func() (any, error) {
-					return nil, mc.sender.Send(model.Metrics{
-						ID:    PollCount,
-						MType: model.Counter,
-						Delta: (*int64)(&poolCount),
-					})
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("can't send metric after retries: %s\n%w", PollCount, err)
-			}
+		if err != nil {
+			return err
 		}
 
 		mc.lastLogTime = time.Now()
-
-		// если все метрики успешно отправлены серверу, сбрасываем счётчик
 		mc.pollCounter.Reset()
 	}
 
 	return nil
 }
 
-func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
-	// Проверяем, является ли sender экземпляром jsonSender
-	if jsonSender, ok := mc.sender.(*jsonSender); ok {
-		// Если да, используем метод SendBatch
-		return jsonSender.SendBatch(metrics)
+func (mc *MetricCollector) createRetryStrategy() repeater.Strategy {
+	return repeater.NewFixedDelaysStrategy(
+		NewAgentErrorClassifier().IsRetriable,
+		time.Second*1,
+		time.Second*3,
+		time.Second*5,
+	)
+}
+
+func (mc *MetricCollector) handleBatchMode(metrics []model.Metrics) error {
+	try := repeater.NewRepeater(func(err error) {
+		fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
+	})
+	repeatStrategy := mc.createRetryStrategy()
+	_, err := try.Repeat(
+		repeatStrategy,
+		func() (any, error) {
+			return nil, mc.sendMetricsBatch(metrics)
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("can't send metrics batch after retries: %w", err)
 	}
 
-	// Если нет, отправляем метрики по одной
+	return nil
+}
+
+func (mc *MetricCollector) handleSingleMode(metrics []model.Metrics) error {
+	try := repeater.NewRepeater(func(err error) {
+		fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
+	})
+	repeatStrategy := mc.createRetryStrategy()
+
+	_, err := try.Repeat(
+		repeatStrategy,
+		func() (any, error) {
+			return nil, mc.sendMetricsByOne(metrics)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("can't send metrics batch after retries: %w", err)
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
+	if batchSender, ok := mc.sender.(BatchSender); ok {
+		return batchSender.SendBatch(metrics)
+	}
+
+	err := mc.sendMetricsByOne(metrics)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) sendMetricsByOne(metrics []model.Metrics) error {
 	for _, metric := range metrics {
 		err := mc.sender.Send(metric)
 		if err != nil {
@@ -198,7 +172,45 @@ func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
 	return nil
 }
 
-func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
+func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
+	metrics := []model.Metrics{}
+
+	randomValue, err := mc.gaugeStorage.Get(RandomValue)
+	if err != nil {
+		return nil, fmt.Errorf("can't get random value: %w", err)
+	}
+	metrics = append(metrics, model.Metrics{
+		ID:    RandomValue,
+		MType: model.Gauge,
+		Value: (*float64)(&randomValue),
+	})
+
+	poolCount, err := mc.counterStorage.Get(PollCount)
+	if err != nil {
+		return nil, fmt.Errorf("can't get poll count: %w", err)
+	}
+	metrics = append(metrics, model.Metrics{
+		ID:    PollCount,
+		MType: model.Counter,
+		Delta: (*int64)(&poolCount),
+	})
+
+	for _, metricName := range mc.memStatReader.SupportedMetrics() {
+		metricValue, err := mc.gaugeStorage.Get(metricName)
+		if err != nil {
+			return nil, fmt.Errorf("can't get random value: %w", err)
+		}
+		metrics = append(metrics, model.Metrics{
+			ID:    metricName,
+			MType: model.Gauge,
+			Value: (*float64)(&metricValue),
+		})
+	}
+
+	return metrics, nil
+}
+
+func (mc *MetricCollector) collectAllMetrics() error {
 	mc.memStatReader.Refresh()
 
 	for _, metricName := range mc.memStatReader.SupportedMetrics() {
@@ -211,31 +223,18 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 		if err != nil {
 			return err
 		}
+	}
 
-		if isNeedSend {
-			try := repeater.NewRepeater(func(err error) {
-				fmt.Printf("Ошибка отправки метрики %s: %v\n", metricName, err)
-			})
-			repeatStrategy := repeater.NewFixedDelaysStrategy(
-				NewAgentErrorClassifier().IsRetriable,
-				time.Second*1,
-				time.Second*3,
-				time.Second*5,
-			)
-			_, err := try.Repeat(
-				repeatStrategy,
-				func() (any, error) {
-					return nil, mc.sender.Send(model.Metrics{
-						ID:    metricName,
-						MType: model.Gauge,
-						Value: &metricVal,
-					})
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("can't send metric after retries: %s\n%v", metricName, err)
-			}
-		}
+	randomValue := mc.randomizer.Randomize()
+	err := mc.gaugeStorage.Set(RandomValue, randomValue)
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
+	}
+
+	mc.pollCounter.Increment()
+	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
 	}
 
 	return nil
