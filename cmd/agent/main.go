@@ -18,7 +18,7 @@ type Config struct {
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
 	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
 	Batch          bool   `env:"BATCH" envDefault:"false"`
-	Key            string `env:"KEY" envDefault:""`
+	SecretKey      string `env:"KEY" envDefault:""`
 }
 
 func main() {
@@ -74,7 +74,7 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
 	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
 	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
-	cmd.Flags().StringVarP(&cfg.Key, "key", "k", cfg.Key, "Key for signing metrics")
+	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", cfg.SecretKey, "SecretKey for signing metrics")
 
 	return cfg, nil
 }
@@ -86,8 +86,8 @@ func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 		sender = agent.NewMetricURLSender(cfg.Address)
 	} else {
 		var signer *signature.Signer
-		if cfg.Key != "" {
-			signer = signature.NewSign(cfg.Key)
+		if cfg.SecretKey != "" {
+			signer = signature.NewSign(cfg.SecretKey)
 		}
 		sender = agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer)
 	}
