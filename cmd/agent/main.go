@@ -16,6 +16,7 @@ type Config struct {
 	PollInterval   int    `env:"POLL_INTERVAL" envDefault:"2"`
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
 	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
+	Batch          bool   `env:"BATCH" envDefault:"false"`
 }
 
 func main() {
@@ -54,7 +55,7 @@ func main() {
 func run(cfg *Config) {
 	metricCollector := MetricCollectorFactory(cfg)
 	defer metricCollector.Close()
-	metricCollector.CollectAndSendMetrics()
+	metricCollector.CollectAndSendMetrics(cfg.Batch)
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
@@ -70,6 +71,7 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", cfg.PollInterval, "Poll interval in seconds")
 	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
 	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
+	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
 
 	return cfg, nil
 }

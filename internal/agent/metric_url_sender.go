@@ -44,11 +44,11 @@ func (sender *urPathSender) Send(metric model.Metrics) (err error) {
 		SetPathParam("metricVal", metricData.value).
 		Post("/update/{metricType}/{metricName}/{metricVal}")
 	if err != nil {
-		return fmt.Errorf("can't send metric: %s = %s\nprevious: %w", metricData.name, metricData.value, err)
+		return WrapSendError(0, fmt.Sprintf("can't send metric: %s = %s", metricData.name, metricData.value), err)
 	}
 
 	if resp.IsError() {
-		return fmt.Errorf("can't send metric: %s = %s\nresponse: %s", metricData.name, metricData.value, resp.String())
+		return NewSendError(resp.StatusCode(), "can't send metric: %s = %s\nresponse: %s", metricData.name, metricData.value, resp.String())
 	}
 
 	return nil

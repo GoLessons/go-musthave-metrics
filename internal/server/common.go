@@ -7,4 +7,5 @@ const (
 	MetricName  contextKey = "metricName"
 	MetricType  contextKey = "metricType"
 	MetricValue contextKey = "metricValue"
+	MetricsList contextKey = "metricsList"
 )

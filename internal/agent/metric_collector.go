@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"time"
 )
 
@@ -15,6 +16,11 @@ var (
 type Sender interface {
 	Send(model.Metrics) error
 	Close()
+}
+
+type BatchSender interface {
+	SendBatch(metrics []model.Metrics) error
+	Sender
 }
 
 type MetricCollector struct {
@@ -54,9 +60,9 @@ func (mc *MetricCollector) Close() {
 	mc.sender.Close()
 }
 
-func (mc *MetricCollector) CollectAndSendMetrics() {
+func (mc *MetricCollector) CollectAndSendMetrics(batch bool) {
 	for {
-		err := mc.handle()
+		err := mc.handle(batch)
 		if err != nil {
 			fmt.Printf("metrics handling failed: %v\n", err)
 		}
@@ -65,58 +71,146 @@ func (mc *MetricCollector) CollectAndSendMetrics() {
 	}
 }
 
-func (mc *MetricCollector) handle() error {
+func (mc *MetricCollector) handle(batch bool) error {
+	err := mc.collectAllMetrics()
+	if err != nil {
+		return fmt.Errorf("can't collect metrics: %w", err)
+	}
+
 	isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
-
-	err := mc.handleMemStats(isNeedSend)
-	if err != nil {
-		return fmt.Errorf("can't handle metrics: %w", err)
-	}
-
-	mc.pollCounter.Increment()
-
-	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
-	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
-	}
-
-	randomValue := mc.randomizer.Randomize()
-	err = mc.gaugeStorage.Set(RandomValue, randomValue)
-	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
-	}
-
 	if isNeedSend {
-		err := mc.sender.Send(model.Metrics{
-			ID:    RandomValue,
-			MType: model.Gauge,
-			Value: (*float64)(&randomValue),
-		})
+		metrics, err := mc.fetchAllMetrics()
 		if err != nil {
-			return fmt.Errorf("can't send metric: %s\n%w", RandomValue, err)
+			return fmt.Errorf("can't fetch metrics: %w", err)
 		}
 
-		poolCount := mc.pollCounter.Count()
-		err = mc.sender.Send(model.Metrics{
-			ID:    PollCount,
-			MType: model.Counter,
-			Delta: (*int64)(&poolCount),
-		})
+		if batch {
+			err = mc.handleBatchMode(metrics)
+		} else {
+			err = mc.handleSingleMode(metrics)
+		}
 
 		if err != nil {
-			return fmt.Errorf("can't send metric: %s\n%w", PollCount, err)
+			return err
 		}
 
 		mc.lastLogTime = time.Now()
-
-		// если все метрики успешно отправлены серверу, сбрасываем счётчик
 		mc.pollCounter.Reset()
 	}
 
 	return nil
 }
 
-func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
+func (mc *MetricCollector) createRetryStrategy() repeater.Strategy {
+	return repeater.NewFixedDelaysStrategy(
+		NewAgentErrorClassifier().IsRetriable,
+		time.Second*1,
+		time.Second*3,
+		time.Second*5,
+	)
+}
+
+func (mc *MetricCollector) handleBatchMode(metrics []model.Metrics) error {
+	try := repeater.NewRepeater(func(err error) {
+		fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
+	})
+	repeatStrategy := mc.createRetryStrategy()
+	_, err := try.Repeat(
+		repeatStrategy,
+		func() (any, error) {
+			return nil, mc.sendMetricsBatch(metrics)
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("can't send metrics batch after retries: %w", err)
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) handleSingleMode(metrics []model.Metrics) error {
+	try := repeater.NewRepeater(func(err error) {
+		fmt.Printf("Ошибка отправки пакета метрик: %v\n", err)
+	})
+	repeatStrategy := mc.createRetryStrategy()
+
+	_, err := try.Repeat(
+		repeatStrategy,
+		func() (any, error) {
+			return nil, mc.sendMetricsByOne(metrics)
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("can't send metrics batch after retries: %w", err)
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
+	if batchSender, ok := mc.sender.(BatchSender); ok {
+		return batchSender.SendBatch(metrics)
+	}
+
+	err := mc.sendMetricsByOne(metrics)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) sendMetricsByOne(metrics []model.Metrics) error {
+	for _, metric := range metrics {
+		err := mc.sender.Send(metric)
+		if err != nil {
+			return fmt.Errorf("can't send metric: %s\n%w", metric.ID, err)
+		}
+	}
+
+	return nil
+}
+
+func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
+	metrics := []model.Metrics{}
+
+	randomValue, err := mc.gaugeStorage.Get(RandomValue)
+	if err != nil {
+		return nil, fmt.Errorf("can't get random value: %w", err)
+	}
+	metrics = append(metrics, model.Metrics{
+		ID:    RandomValue,
+		MType: model.Gauge,
+		Value: (*float64)(&randomValue),
+	})
+
+	poolCount, err := mc.counterStorage.Get(PollCount)
+	if err != nil {
+		return nil, fmt.Errorf("can't get poll count: %w", err)
+	}
+	metrics = append(metrics, model.Metrics{
+		ID:    PollCount,
+		MType: model.Counter,
+		Delta: (*int64)(&poolCount),
+	})
+
+	for _, metricName := range mc.memStatReader.SupportedMetrics() {
+		metricValue, err := mc.gaugeStorage.Get(metricName)
+		if err != nil {
+			return nil, fmt.Errorf("can't get random value: %w", err)
+		}
+		metrics = append(metrics, model.Metrics{
+			ID:    metricName,
+			MType: model.Gauge,
+			Value: (*float64)(&metricValue),
+		})
+	}
+
+	return metrics, nil
+}
+
+func (mc *MetricCollector) collectAllMetrics() error {
 	mc.memStatReader.Refresh()
 
 	for _, metricName := range mc.memStatReader.SupportedMetrics() {
@@ -129,17 +223,18 @@ func (mc *MetricCollector) handleMemStats(isNeedSend bool) error {
 		if err != nil {
 			return err
 		}
+	}
 
-		if isNeedSend {
-			err := mc.sender.Send(model.Metrics{
-				ID:    metricName,
-				MType: model.Gauge,
-				Value: &metricVal,
-			})
-			if err != nil {
-				return fmt.Errorf("can't send metric: %s\n%v", metricName, err)
-			}
-		}
+	randomValue := mc.randomizer.Randomize()
+	err := mc.gaugeStorage.Set(RandomValue, randomValue)
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
+	}
+
+	mc.pollCounter.Increment()
+	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
+	if err != nil {
+		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
 	}
 
 	return nil

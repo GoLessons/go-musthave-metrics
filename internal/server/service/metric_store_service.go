@@ -3,7 +3,9 @@ package service
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"os"
 	"os/signal"
 	"sync"
@@ -69,15 +71,39 @@ func (s *MetricStorageService) autoStore(storeInterval uint64) {
 	ticker := time.NewTicker(time.Duration(storeInterval) * time.Second)
 	defer ticker.Stop()
 
+	try := repeater.NewRepeater(func(err error) {
+		fmt.Printf("error dumping metrics: %v\n", err)
+	})
+	repeatStrategy := repeater.NewFixedDelaysStrategy(
+		database.NewPostgresErrorClassifier().IsRetriable,
+		time.Second*1,
+		time.Second*3,
+		time.Second*5,
+	)
+
 	for {
 		select {
 		case <-ticker.C:
-			if err := StoreState(s.metricService, s.metricDumper); err != nil {
-				fmt.Printf("error dumping metrics: %v\n", err)
+			_, err := try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					err := StoreState(s.metricService, s.metricDumper)
+					return nil, err
+				},
+			)
+			if err != nil {
+				fmt.Printf("error dumping metrics after retries: %v\n", err)
 			}
 		case <-s.stopCh:
-			if err := StoreState(s.metricService, s.metricDumper); err != nil {
-				fmt.Printf("error dumping metrics during shutdown: %v\n", err)
+			_, err := try.Repeat(
+				repeatStrategy,
+				func() (any, error) {
+					err := StoreState(s.metricService, s.metricDumper)
+					return nil, err
+				},
+			)
+			if err != nil {
+				fmt.Printf("error dumping metrics during shutdown after retries: %v\n", err)
 			}
 			return
 		}

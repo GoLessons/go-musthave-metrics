@@ -53,26 +53,3 @@ func (d *fileMetricDumper) Dump(metrics []model.Metrics) error {
 
 	return nil
 }
-
-func (d *fileMetricDumper) Restore() (metrics []model.Metrics, err error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	if _, err := os.Stat(d.filePath); os.IsNotExist(err) {
-		// если файла нет, не ломаемся, просто нечего подгружать, стейт нулевой
-		return metrics, nil
-	}
-
-	file, err := os.OpenFile(d.filePath, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&metrics); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metrics: %w", err)
-	}
-
-	return metrics, nil
-}
