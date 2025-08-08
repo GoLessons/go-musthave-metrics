@@ -12,6 +12,7 @@ type Config struct {
 	Address     string `env:"ADDRESS"`
 	DatabaseDsn string `env:"DATABASE_DSN"`
 	DumpConfig  DumpConfig
+	Key         string `env:"KEY"` // Ключ для подписи
 }
 
 type DumpConfig struct {
@@ -60,12 +61,14 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	storeInterval := flags.Uint64("store-interval", 300, "Store interval in seconds")
 	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
 	databaseDsn := flags.String("database-dsn", "", "Database DSN")
+	key := flags.String("key", "", "Key for signature verification")
 
 	flags.StringVar(address, "a", *address, "HTTP server address (short)")
 	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
 	flags.Uint64Var(storeInterval, "i", *storeInterval, "Store interval in seconds (short)")
 	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
+	flags.StringVar(key, "k", *key, "Key for signature verification (short)")
 
 	filteredArgs := filterArgs(flags, os.Args[1:])
 
@@ -79,6 +82,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	cfg := &Config{
 		Address:     *address,
 		DatabaseDsn: *databaseDsn,
+		Key:         *key,
 		DumpConfig: DumpConfig{
 			Restore:         *restore,
 			StoreInterval:   *storeInterval,
@@ -110,6 +114,10 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 		cfg.DumpConfig.FileStoragePath = envFileStoragePath
+	}
+
+	if envKey := os.Getenv("KEY"); envKey != "" {
+		cfg.Key = envKey
 	}
 
 	if args != nil {
@@ -179,6 +187,12 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 	if val, ok := (*args)["DumpConfig.FileStoragePath"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.DumpConfig.FileStoragePath = strVal
+		}
+	}
+
+	if val, ok := (*args)["Key"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.Key = strVal
 		}
 	}
 }

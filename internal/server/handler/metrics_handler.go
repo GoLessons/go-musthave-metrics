@@ -57,6 +57,7 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	h.responseBuilder(&w, &metricData)
 }
 
 func (h *metricsController) UpdateBatch(w http.ResponseWriter, r *http.Request) {

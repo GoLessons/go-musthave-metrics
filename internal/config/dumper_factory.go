@@ -3,6 +3,7 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"go.uber.org/zap"
@@ -11,7 +12,7 @@ import (
 
 func MetricDumperFactory() container.Factory[*service.MetricDumper] {
 	return func(c container.Container) (*service.MetricDumper, error) {
-		cfg, err := container.GetService[Config](c, "config")
+		cfg, err := container.GetService[config2.Config](c, "config")
 		if err != nil {
 			return nil, err
 		}
@@ -41,7 +42,7 @@ func MetricDumperFactory() container.Factory[*service.MetricDumper] {
 
 func MetricRestorerFactory() container.Factory[*service.MetricRestorer] {
 	return func(c container.Container) (*service.MetricRestorer, error) {
-		cfg, err := container.GetService[Config](c, "config")
+		cfg, err := container.GetService[config2.Config](c, "config")
 		if err != nil {
 			return nil, err
 		}

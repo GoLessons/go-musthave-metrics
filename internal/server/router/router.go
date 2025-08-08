@@ -2,7 +2,9 @@ package router
 
 import (
 	"database/sql"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/handler"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
@@ -40,14 +42,28 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			return nil, err
 		}
 
+		cfg, err := container.GetService[config.Config](c, "config")
+		if err != nil {
+			return nil, err
+		}
+
 		r := chi.NewRouter()
 
 		metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder, logger)
 		metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder, logger)
 
+		var signatureMiddleware *middleware.SignatureMiddleware
+		if cfg.Key != "" {
+			signer := signature.NewSign(cfg.Key)
+			signatureMiddleware = middleware.NewSignatureMiddleware(signer, logger)
+		}
+
 		r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
 			func(r chi.Router) {
 				r.Use(middleware.MetricCtxFromPath)
+				if signatureMiddleware != nil {
+					//r.Use(signatureMiddleware.AddSignature)
+				}
 				r.Post("/", metricControllerPlain.Update)
 			},
 		)
@@ -55,6 +71,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 		r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
 			r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricCtxFromPath)
+			if signatureMiddleware != nil {
+				//r.Use(signatureMiddleware.AddSignature)
+			}
 			r.Get("/", metricControllerPlain.Get)
 		})
 
@@ -62,6 +81,12 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			r.Use(middleware.ValidateRoute)
 			r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricCtxFromBody)
+
+			if signatureMiddleware != nil {
+				r.Use(signatureMiddleware.VerifySignature)
+				//r.Use(signatureMiddleware.AddSignature)
+			}
+
 			r.Post("/", metricControllerJSON.Update)
 			r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Not Found", http.StatusNotFound)
@@ -72,6 +97,12 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			r.Use(middleware.ValidateRoute)
 			r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricsListCtxFromBody)
+
+			if signatureMiddleware != nil {
+				r.Use(signatureMiddleware.VerifySignature)
+				//r.Use(signatureMiddleware.AddSignature)
+			}
+
 			r.Post("/", metricControllerJSON.UpdateBatch)
 			r.Post("/.+", func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Not Found", http.StatusNotFound)
@@ -82,6 +113,12 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			func(r chi.Router) {
 				r.Use(middleware.GzipMiddleware)
 				r.Use(middleware.MetricCtxFromBody)
+
+				if signatureMiddleware != nil {
+					r.Use(signatureMiddleware.VerifySignature)
+					//r.Use(signatureMiddleware.AddSignature)
+				}
+
 				r.Post("/", metricControllerJSON.Get)
 			},
 		)

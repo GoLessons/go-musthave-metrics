@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
-	"github.com/GoLessons/go-musthave-metrics/internal/config"
+	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
+	container2 "github.com/GoLessons/go-musthave-metrics/internal/server/container"
 	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
@@ -24,7 +25,7 @@ import (
 )
 
 func main() {
-	c := config.InitContainer()
+	c := container2.InitContainer()
 	mainCtx := context.Background()
 
 	serverLogger, err := container.GetService[zap.Logger](c, "logger")
@@ -33,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := container.GetService[config.Config](c, "config")
+	cfg, err := container.GetService[config2.Config](c, "config")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -175,7 +176,7 @@ func storeMetrics(serverLogger *zap.Logger, metricService *service.MetricService
 	serverLogger.Info("Состояние сервера сохранено")
 }
 
-func tryMigrateDB(cfg *config.Config, db *sql.DB, serverLogger *zap.Logger) {
+func tryMigrateDB(cfg *config2.Config, db *sql.DB, serverLogger *zap.Logger) {
 	if cfg.DatabaseDsn != "" {
 		migrator := database.NewMigrator(db, serverLogger)
 		err := migrator.Up()
