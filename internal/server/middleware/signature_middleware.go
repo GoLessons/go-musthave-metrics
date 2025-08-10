@@ -42,7 +42,7 @@ func (m *SignatureMiddleware) VerifySignature(next http.Handler) http.Handler {
 		hash := r.Header.Get(m.HashHeader)
 		if hash == "" {
 			m.logger.Error("no hash header", zap.String("hashHeader", m.HashHeader))
-			http.Error(w, "Signature is missing", http.StatusBadRequest)
+			//http.Error(w, "Signature is missing", http.StatusBadRequest)
 			return
 		}
 
