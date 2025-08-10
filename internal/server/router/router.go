@@ -64,6 +64,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
 				}
+
 				r.Post("/", metricControllerPlain.Update)
 			},
 		)
@@ -74,16 +75,18 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
 			}
+
 			r.Get("/", metricControllerPlain.Get)
 		})
 
 		r.Route("/update", func(r chi.Router) {
 			r.Use(middleware.ValidateRoute)
-			r.Use(middleware.GzipMiddleware)
-			r.Use(middleware.MetricCtxFromBody)
-
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
+			}
+			r.Use(middleware.GzipMiddleware)
+			r.Use(middleware.MetricCtxFromBody)
+			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
 			}
 
@@ -95,11 +98,12 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/updates", func(r chi.Router) {
 			r.Use(middleware.ValidateRoute)
-			r.Use(middleware.GzipMiddleware)
-			r.Use(middleware.MetricsListCtxFromBody)
-
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
+			}
+			r.Use(middleware.GzipMiddleware)
+			r.Use(middleware.MetricsListCtxFromBody)
+			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
 			}
 
@@ -111,11 +115,12 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/value",
 			func(r chi.Router) {
-				r.Use(middleware.GzipMiddleware)
-				r.Use(middleware.MetricCtxFromBody)
-
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.VerifySignature)
+				}
+				r.Use(middleware.GzipMiddleware)
+				r.Use(middleware.MetricCtxFromBody)
+				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
 				}
 

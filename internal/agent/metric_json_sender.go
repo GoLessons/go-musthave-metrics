@@ -33,8 +33,6 @@ func NewJSONSender(address string, enableGzip bool, signer *signature.Signer) *j
 }
 
 func (sender *jsonSender) Send(metric model.Metrics) error {
-	client := sender.client
-
 	switch metric.MType {
 	case model.Counter:
 		if metric.Delta == nil {
@@ -48,106 +46,67 @@ func (sender *jsonSender) Send(metric model.Metrics) error {
 		return fmt.Errorf("unsupported metric type: %s", metric.MType)
 	}
 
-	request := client.R()
+	return sender.send("/update", metric)
+}
 
-	var body []byte
-	var err error
+func (sender *jsonSender) SendBatch(metrics []model.Metrics) error {
+	return sender.send("/updates", metrics)
+}
 
-	if sender.enableGzip {
-		request.SetHeader("Content-Encoding", "gzip")
-		request.SetHeader("Accept-Encoding", "gzip")
+func (sender *jsonSender) Close() {
+	defer sender.client.Close()
+}
 
-		body, err := json.Marshal(metric)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metric: %w", err)
-		}
-
-		var buf bytes.Buffer
-		gzipWriter := gzip.NewWriter(&buf)
-
-		_, err = gzipWriter.Write(body)
-		if err != nil {
-			return fmt.Errorf("failed to compress request body: %w", err)
-		}
-
-		err = gzipWriter.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close gzip writer: %w", err)
-		}
-
-		request.SetBody(buf.Bytes())
-	} else {
-		body, err = json.Marshal(metric)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metric: %w", err)
-		}
-		request.SetBody(metric)
+func (sender *jsonSender) prepareBody(data interface{}) ([]byte, error) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal: %w", err)
 	}
 
-	// Добавляем подпись, если signer не nil
+	if sender.enableGzip {
+		var buf bytes.Buffer
+		gzipWriter := gzip.NewWriter(&buf)
+		if _, err := gzipWriter.Write(body); err != nil {
+			return nil, fmt.Errorf("failed to compress request body: %w", err)
+		}
+		if err := gzipWriter.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+		}
+		return buf.Bytes(), nil
+	}
+
+	return body, nil
+}
+
+func (sender *jsonSender) send(endpoint string, data interface{}) error {
+	body, err := sender.prepareBody(data)
+	if err != nil {
+		return err
+	}
+
+	request := sender.client.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(body)
+
+	if sender.enableGzip {
+		request.SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip")
+	}
+
 	if sender.signer != nil {
-		hash, err := sender.signer.Hash(body)
+		hash, err := sender.signer.Hash(body) // подписываем финальное тело
 		if err != nil {
 			return fmt.Errorf("failed to calculate hash: %w", err)
 		}
 		request.SetHeader("HashSHA256", hash)
 	}
 
-	resp, err := request.Post("/update")
+	resp, err := request.Post(endpoint)
 	if err != nil {
-		return WrapSendError(0, fmt.Sprintf("can't send metric: %s (type: %s)", metric.ID, metric.MType), err)
+		return WrapSendError(0, fmt.Sprintf("can't send data to %s", endpoint), err)
 	}
-
 	if resp.IsError() {
-		return NewSendError(resp.StatusCode(), "can't send metric: %s (type: %s), response: %s", metric.ID, metric.MType, resp.String())
+		return NewSendError(resp.StatusCode(), "can't send data to %s, response: %s", endpoint, resp.String())
 	}
-
 	return nil
-}
-
-func (sender *jsonSender) SendBatch(metrics []model.Metrics) error {
-	client := sender.client
-	request := client.R()
-
-	if sender.enableGzip {
-		request.SetHeader("Content-Encoding", "gzip")
-		request.SetHeader("Accept-Encoding", "gzip")
-
-		body, err := json.Marshal(metrics)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metrics: %w", err)
-		}
-
-		var buf bytes.Buffer
-		gzipWriter := gzip.NewWriter(&buf)
-
-		_, err = gzipWriter.Write(body)
-		if err != nil {
-			return fmt.Errorf("failed to compress request body: %w", err)
-		}
-
-		err = gzipWriter.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close gzip writer: %w", err)
-		}
-
-		request.SetBody(buf.Bytes())
-	} else {
-		request.SetBody(metrics)
-	}
-
-	resp, err := request.Post("/updates")
-	if err != nil {
-		return WrapSendError(0, "can't send metrics batch", err)
-	}
-
-	if resp.IsError() {
-		return NewSendError(resp.StatusCode(), "can't send metrics batch, response: %s", resp.String())
-	}
-
-	return nil
-}
-
-func (sender *jsonSender) Close() {
-	defer sender.client.Close()
 }
