@@ -16,10 +16,17 @@ type SignatureMiddleware struct {
 
 type signatureWriter struct {
 	http.ResponseWriter
-	signer     *signature.Signer
-	body       bytes.Buffer
-	hashHeader string
-	headerSent bool
+	statusCode int
+	body       []byte
+}
+
+func (r *signatureWriter) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
+}
+
+func (r *signatureWriter) Write(b []byte) (int, error) {
+	r.body = append(r.body, b...)
+	return len(b), nil
 }
 
 func NewSignatureMiddleware(signer *signature.Signer, logger *zap.Logger) *SignatureMiddleware {
@@ -60,6 +67,25 @@ func (m *SignatureMiddleware) VerifySignature(next http.Handler) http.Handler {
 
 func (m *SignatureMiddleware) AddSignature(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
+		rec := &signatureWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		next.ServeHTTP(rec, r)
+
+		if len(rec.body) == 0 {
+			w.WriteHeader(rec.statusCode)
+			_, _ = w.Write(rec.body)
+			return
+		}
+
+		hash, err := m.signer.Hash(rec.body)
+		if err != nil {
+			http.Error(w, "failed to sign response", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("HashSHA256", hash)
+
+		w.WriteHeader(rec.statusCode)
+		_, _ = w.Write(rec.body)
 	})
 }

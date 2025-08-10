@@ -62,7 +62,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			func(r chi.Router) {
 				r.Use(middleware.MetricCtxFromPath)
 				if signatureMiddleware != nil {
-					//r.Use(signatureMiddleware.AddSignature)
+					r.Use(signatureMiddleware.AddSignature)
 				}
 				r.Post("/", metricControllerPlain.Update)
 			},
@@ -72,7 +72,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			r.Use(middleware.GzipMiddleware)
 			r.Use(middleware.MetricCtxFromPath)
 			if signatureMiddleware != nil {
-				//r.Use(signatureMiddleware.AddSignature)
+				r.Use(signatureMiddleware.AddSignature)
 			}
 			r.Get("/", metricControllerPlain.Get)
 		})
@@ -84,7 +84,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
-				//r.Use(signatureMiddleware.AddSignature)
+				r.Use(signatureMiddleware.AddSignature)
 			}
 
 			r.Post("/", metricControllerJSON.Update)
@@ -100,7 +100,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
-				//r.Use(signatureMiddleware.AddSignature)
+				r.Use(signatureMiddleware.AddSignature)
 			}
 
 			r.Post("/", metricControllerJSON.UpdateBatch)
@@ -116,7 +116,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.VerifySignature)
-					//r.Use(signatureMiddleware.AddSignature)
+					r.Use(signatureMiddleware.AddSignature)
 				}
 
 				r.Post("/", metricControllerJSON.Get)

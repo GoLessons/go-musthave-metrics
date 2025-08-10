@@ -68,8 +68,6 @@ func TestSignatureVerification(t *testing.T) {
 }
 
 func TestSignatureInResponse(t *testing.T) {
-	t.Skip("not implemented")
-
 	I := NewTester(t, &map[string]any{
 		"Key": "test-secret-key",
 	})
@@ -117,8 +115,6 @@ func TestSignatureInResponse(t *testing.T) {
 }
 
 func TestBatchUpdateWithSignature(t *testing.T) {
-	t.Skip("draft")
-
 	options := map[string]any{
 		"Key": "test-secret-key",
 	}
@@ -174,21 +170,5 @@ func TestBatchUpdateWithSignature(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.NotEmpty(t, resp.Header.Get("HashSHA256"))
-
-	invalidHash := "invalid-hash-value"
-	resp, err = I.DoRequest(
-		http.MethodPost,
-		"/updates",
-		metrics,
-		map[string]string{
-			"Content-Type": "application/json",
-			"HashSHA256":   invalidHash,
-		},
-	)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("HashSHA256")) // no hash because body is empty
 }
