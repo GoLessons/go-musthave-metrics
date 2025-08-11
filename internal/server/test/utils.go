@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
@@ -242,4 +243,17 @@ func (tester *tester) buildBody(body interface{}, headers map[string]string) (bo
 
 func (tester *tester) Shutdown() {
 	defer tester.testServer.Close()
+}
+
+func (tester *tester) ReadGzip(resp *http.Response) ([]byte, error) {
+	if strings.Contains(resp.Header.Get("Content-Encoding"), "gzip") {
+		gr, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gr.Close()
+		return io.ReadAll(gr)
+	}
+
+	return io.ReadAll(resp.Body)
 }
