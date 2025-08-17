@@ -2,15 +2,11 @@ package agent
 
 import (
 	"fmt"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"time"
-)
-
-var (
-	PollCount   = "PollCount"
-	RandomValue = "RandomValue"
 )
 
 type Sender interface {
@@ -24,35 +20,34 @@ type BatchSender interface {
 }
 
 type MetricCollector struct {
-	gaugeStorage   storage.Storage[GaugeValue]
-	counterStorage storage.Storage[CounterValue]
-	memStatReader  *memStatsReader[float64]
-	pollCounter    *pollCounter[CounterValue]
-	randomizer     *Randomizer
-	sender         Sender
-	dumpInterval   time.Duration
-	pollDuration   time.Duration
-	lastLogTime    time.Time
+	storage       storage.Storage[model.Metrics]
+	runtimeReader reader.Reader
+	systemReader  reader.Reader
+	simpleReader  *reader.SimpleMetricsReader
+	sender        Sender
+	dumpInterval  time.Duration
+	pollDuration  time.Duration
+	lastLogTime   time.Time
 }
 
 func NewMetricCollector(
-	gaugeStorage storage.Storage[GaugeValue],
-	counterStorage storage.Storage[CounterValue],
-	memStatReader *memStatsReader[float64],
+	storage storage.Storage[model.Metrics],
+	runtimeReader reader.Reader,
+	systemReader reader.Reader,
+	simpleReader *reader.SimpleMetricsReader,
 	sender Sender,
 	dumpInterval time.Duration,
 	pollDuration time.Duration,
 ) *MetricCollector {
 	return &MetricCollector{
-		gaugeStorage:   gaugeStorage,
-		counterStorage: counterStorage,
-		memStatReader:  memStatReader,
-		pollCounter:    NewPollCounter(0),
-		randomizer:     NewRandomizer(),
-		sender:         sender,
-		dumpInterval:   dumpInterval,
-		pollDuration:   pollDuration,
-		lastLogTime:    time.Now(),
+		storage:       storage,
+		runtimeReader: runtimeReader,
+		systemReader:  systemReader,
+		simpleReader:  simpleReader,
+		sender:        sender,
+		dumpInterval:  dumpInterval,
+		pollDuration:  pollDuration,
+		lastLogTime:   time.Now(),
 	}
 }
 
@@ -95,7 +90,7 @@ func (mc *MetricCollector) handle(batch bool) error {
 		}
 
 		mc.lastLogTime = time.Now()
-		mc.pollCounter.Reset()
+		mc.simpleReader.Reset()
 	}
 
 	return nil
@@ -173,65 +168,72 @@ func (mc *MetricCollector) sendMetricsByOne(metrics []model.Metrics) error {
 }
 
 func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
-	metrics := []model.Metrics{}
-
-	randomValue, err := mc.gaugeStorage.Get(RandomValue)
+	all, err := mc.storage.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("can't get random value: %w", err)
+		return nil, fmt.Errorf("can't get all metrics: %w", err)
 	}
-	metrics = append(metrics, *model.NewGauge(
-		RandomValue,
-		(*float64)(&randomValue),
-	))
 
-	poolCount, err := mc.counterStorage.Get(PollCount)
-	if err != nil {
-		return nil, fmt.Errorf("can't get poll count: %w", err)
-	}
-	metrics = append(metrics, *model.NewCounter(
-		PollCount,
-		(*int64)(&poolCount),
-	))
-
-	for _, metricName := range mc.memStatReader.SupportedMetrics() {
-		metricValue, err := mc.gaugeStorage.Get(metricName)
-		if err != nil {
-			return nil, fmt.Errorf("can't get random value: %w", err)
-		}
-		metrics = append(metrics, *model.NewGauge(
-			metricName,
-			(*float64)(&metricValue),
-		))
+	metrics := make([]model.Metrics, 0, len(all))
+	for _, metric := range all {
+		metrics = append(metrics, metric)
 	}
 
 	return metrics, nil
 }
 
 func (mc *MetricCollector) collectAllMetrics() error {
-	mc.memStatReader.Refresh()
+	// Collect runtime metrics
+	err := mc.runtimeReader.Refresh()
+	if err != nil {
+		return fmt.Errorf("can't refresh runtime metrics: %w", err)
+	}
 
-	for _, metricName := range mc.memStatReader.SupportedMetrics() {
-		metricVal, ok := mc.memStatReader.Get(metricName)
-		if !ok {
-			return fmt.Errorf("can't read metric: %s", metricName)
-		}
+	runtimeMetrics, err := mc.runtimeReader.Fetch()
+	if err != nil {
+		return fmt.Errorf("can't fetch runtime metrics: %w", err)
+	}
 
-		err := mc.gaugeStorage.Set(metricName, GaugeValue(metricVal))
+	for _, metric := range runtimeMetrics {
+		err = mc.storage.Set(metric.ID, metric)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't store runtime metric %s: %w", metric.ID, err)
 		}
 	}
 
-	randomValue := mc.randomizer.Randomize()
-	err := mc.gaugeStorage.Set(RandomValue, randomValue)
+	// Collect system metrics
+	err = mc.systemReader.Refresh()
 	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", RandomValue, err)
+		return fmt.Errorf("can't refresh system metrics: %w", err)
 	}
 
-	mc.pollCounter.Increment()
-	err = mc.counterStorage.Set(PollCount, mc.pollCounter.Count())
+	systemMetrics, err := mc.systemReader.Fetch()
 	if err != nil {
-		return fmt.Errorf("storage error for: %s\n%w", PollCount, err)
+		return fmt.Errorf("can't fetch system metrics: %w", err)
+	}
+
+	for _, metric := range systemMetrics {
+		err = mc.storage.Set(metric.ID, metric)
+		if err != nil {
+			return fmt.Errorf("can't store system metric %s: %w", metric.ID, err)
+		}
+	}
+
+	// Collect simple metrics (PollCount, RandomValue)
+	err = mc.simpleReader.Refresh()
+	if err != nil {
+		return fmt.Errorf("can't refresh simple metrics: %w", err)
+	}
+
+	simpleMetrics, err := mc.simpleReader.Fetch()
+	if err != nil {
+		return fmt.Errorf("can't fetch simple metrics: %w", err)
+	}
+
+	for _, metric := range simpleMetrics {
+		err = mc.storage.Set(metric.ID, metric)
+		if err != nil {
+			return fmt.Errorf("can't store simple metric %s: %w", metric.ID, err)
+		}
 	}
 
 	return nil
