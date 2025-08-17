@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
@@ -9,8 +15,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
-	"os"
-	"time"
 )
 
 type Config struct {
@@ -37,7 +41,6 @@ func main() {
 	}
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
-
 		if cfg.ReportInterval <= 0 {
 			return fmt.Errorf("report interval must be positive, got %d", cfg.ReportInterval)
 		}
@@ -45,8 +48,7 @@ func main() {
 			return fmt.Errorf("poll interval must be positive, got %d", cfg.PollInterval)
 		}
 
-		run(cfg)
-		return nil
+		return run(cfg)
 	}
 
 	rootCmd.FParseErrWhitelist.UnknownFlags = false
@@ -57,10 +59,25 @@ func main() {
 	}
 }
 
-func run(cfg *Config) {
+func run(cfg *Config) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Получен сигнал завершения, завершаем работу...")
+		cancel()
+	}()
+
 	metricCollector := MetricCollectorFactory(cfg)
 	defer metricCollector.Close()
-	metricCollector.CollectAndSendMetrics(cfg.Batch)
+
+	metricCollector.CollectAndSendMetrics(ctx, cfg.Batch)
+
+	return nil
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
@@ -103,5 +120,6 @@ func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 		sender,
 		time.Duration(cfg.ReportInterval)*time.Second,
 		time.Duration(cfg.PollInterval)*time.Second,
+		cfg.RateLimit,
 	)
 }

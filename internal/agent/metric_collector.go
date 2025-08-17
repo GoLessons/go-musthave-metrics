@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
+	"sync"
 	"time"
 )
 
@@ -35,7 +37,7 @@ type MetricCollector struct {
 	sender       Sender
 	dumpInterval time.Duration
 	pollDuration time.Duration
-	lastLogTime  time.Time
+	rateLimit    int
 }
 
 func NewMetricCollector(
@@ -45,6 +47,7 @@ func NewMetricCollector(
 	sender Sender,
 	dumpInterval time.Duration,
 	pollDuration time.Duration,
+	rateLimit int,
 ) *MetricCollector {
 	return &MetricCollector{
 		storage:      storage,
@@ -53,7 +56,7 @@ func NewMetricCollector(
 		sender:       sender,
 		dumpInterval: dumpInterval,
 		pollDuration: pollDuration,
-		lastLogTime:  time.Now(),
+		rateLimit:    rateLimit,
 	}
 }
 
@@ -61,45 +64,167 @@ func (mc *MetricCollector) Close() {
 	mc.sender.Close()
 }
 
-func (mc *MetricCollector) CollectAndSendMetrics(batch bool) {
-	for {
-		err := mc.handle(batch)
-		if err != nil {
-			fmt.Printf("metrics handling failed: %v\n", err)
-		}
+func (mc *MetricCollector) CollectAndSendMetrics(ctx context.Context, batch bool) {
+	pollTicker := time.NewTicker(mc.pollDuration)
+	defer pollTicker.Stop()
 
-		time.Sleep(mc.pollDuration)
+	dumpTicker := time.NewTicker(mc.dumpInterval)
+	defer dumpTicker.Stop()
+
+	sendChan := make(chan []model.Metrics, 1)
+	var sendGroup sync.WaitGroup
+
+	sendGroup.Add(1)
+	go mc.senderWorker(ctx, sendChan, batch, &sendGroup)
+
+	for {
+		select {
+		case <-ctx.Done():
+			close(sendChan)
+			sendGroup.Wait()
+			return
+		case <-pollTicker.C:
+			mc.collectAllMetrics(ctx)
+		case <-dumpTicker.C:
+			metrics, err := mc.fetchAllMetrics()
+			if err != nil {
+				fmt.Printf("can't fetch metrics: %v\n", err)
+				continue
+			}
+
+			select {
+			case sendChan <- metrics:
+				mc.simpleReader.Reset()
+			case <-ctx.Done():
+				close(sendChan)
+				sendGroup.Wait()
+				return
+			}
+		}
 	}
 }
 
-func (mc *MetricCollector) handle(batch bool) error {
-	err := mc.collectAllMetrics()
-	if err != nil {
-		return fmt.Errorf("can't collect metrics: %w", err)
+func (mc *MetricCollector) senderWorker(ctx context.Context, sendChan <-chan []model.Metrics, batch bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	var activeRequests sync.WaitGroup
+	var semaphore chan struct{}
+	if mc.rateLimit > 0 {
+		semaphore = make(chan struct{}, mc.rateLimit)
 	}
 
-	isNeedSend := time.Since(mc.lastLogTime) >= mc.dumpInterval
-	if isNeedSend {
-		metrics, err := mc.fetchAllMetrics()
-		if err != nil {
-			return fmt.Errorf("can't fetch metrics: %w", err)
-		}
+	sendMetrics := func(metricsToSend []model.Metrics) {
+		defer activeRequests.Done()
+		defer func() {
+			if semaphore != nil {
+				<-semaphore
+			}
+		}()
 
+		var err error
 		if batch {
-			err = mc.handleBatchMode(metrics)
+			err = mc.handleBatchMode(metricsToSend)
 		} else {
-			err = mc.handleSingleMode(metrics)
+			err = mc.handleSingleMode(metricsToSend)
 		}
 
 		if err != nil {
-			return err
+			fmt.Printf("metrics sending failed: %v\n", err)
 		}
-
-		mc.lastLogTime = time.Now()
-		mc.simpleReader.Reset()
 	}
 
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			activeRequests.Wait()
+			return
+		case metrics, ok := <-sendChan:
+			if !ok {
+				activeRequests.Wait()
+				return
+			}
+
+			if semaphore != nil {
+				select {
+				case semaphore <- struct{}{}:
+				case <-ctx.Done():
+					activeRequests.Wait()
+					return
+				}
+			}
+
+			activeRequests.Add(1)
+			go sendMetrics(metrics)
+		}
+	}
+}
+
+func (mc *MetricCollector) collectAllMetrics(ctx context.Context) {
+	var wg sync.WaitGroup
+
+	for _, r := range mc.readers {
+		wg.Add(1)
+		go func(reader Reader) {
+			defer wg.Done()
+			mc.collectFromReader(reader)
+		}(r)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		mc.collectFromSimpleReader()
+	}()
+
+	// Ждем завершения чтения всех метрик
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
+}
+
+func (mc *MetricCollector) collectFromReader(reader Reader) {
+	if err := reader.Refresh(); err != nil {
+		fmt.Printf("can't refresh reader: %v\n", err)
+		return
+	}
+
+	metrics, err := reader.Fetch()
+	if err != nil {
+		fmt.Printf("can't fetch metrics: %v\n", err)
+		return
+	}
+
+	for _, metric := range metrics {
+		if err := mc.storage.Set(metric.ID, metric); err != nil {
+			fmt.Printf("can't store metric %s: %v\n", metric.ID, err)
+		}
+	}
+}
+
+func (mc *MetricCollector) collectFromSimpleReader() {
+	if err := mc.simpleReader.Refresh(); err != nil {
+		fmt.Printf("can't refresh simple reader: %v\n", err)
+		return
+	}
+
+	metrics, err := mc.simpleReader.Fetch()
+	if err != nil {
+		fmt.Printf("can't fetch simple metrics: %v\n", err)
+		return
+	}
+
+	for _, metric := range metrics {
+		if err := mc.storage.Set(metric.ID, metric); err != nil {
+			fmt.Printf("can't store simple metric %s: %v\n", metric.ID, err)
+		}
+	}
 }
 
 func (mc *MetricCollector) createRetryStrategy() repeater.Strategy {
@@ -154,12 +279,7 @@ func (mc *MetricCollector) sendMetricsBatch(metrics []model.Metrics) error {
 		return batchSender.SendBatch(metrics)
 	}
 
-	err := mc.sendMetricsByOne(metrics)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return mc.sendMetricsByOne(metrics)
 }
 
 func (mc *MetricCollector) sendMetricsByOne(metrics []model.Metrics) error {
@@ -185,44 +305,4 @@ func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
 	}
 
 	return metrics, nil
-}
-
-func (mc *MetricCollector) collectAllMetrics() error {
-	for _, r := range mc.readers {
-		err := r.Refresh()
-		if err != nil {
-			return fmt.Errorf("can't refresh runtime metrics: %w", err)
-		}
-
-		metrics, err := r.Fetch()
-		if err != nil {
-			return fmt.Errorf("can't fetch runtime metrics: %w", err)
-		}
-
-		for _, metric := range metrics {
-			err = mc.storage.Set(metric.ID, metric)
-			if err != nil {
-				return fmt.Errorf("can't store runtime metric %s: %w", metric.ID, err)
-			}
-		}
-	}
-
-	err := mc.simpleReader.Refresh()
-	if err != nil {
-		return fmt.Errorf("can't refresh simple metrics: %w", err)
-	}
-
-	simpleMetrics, err := mc.simpleReader.Fetch()
-	if err != nil {
-		return fmt.Errorf("can't fetch simple metrics: %w", err)
-	}
-
-	for _, metric := range simpleMetrics {
-		err = mc.storage.Set(metric.ID, metric)
-		if err != nil {
-			return fmt.Errorf("can't store simple metric %s: %w", metric.ID, err)
-		}
-	}
-
-	return nil
 }
