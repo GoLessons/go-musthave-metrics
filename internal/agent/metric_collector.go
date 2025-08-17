@@ -19,35 +19,41 @@ type BatchSender interface {
 	Sender
 }
 
+type Reader interface {
+	Refresh() error
+	Fetch() ([]model.Metrics, error)
+}
+
+type ResetableReader interface {
+	Reset()
+}
+
 type MetricCollector struct {
-	storage       storage.Storage[model.Metrics]
-	runtimeReader reader.Reader
-	systemReader  reader.Reader
-	simpleReader  *reader.SimpleMetricsReader
-	sender        Sender
-	dumpInterval  time.Duration
-	pollDuration  time.Duration
-	lastLogTime   time.Time
+	storage      storage.Storage[model.Metrics]
+	readers      []Reader
+	simpleReader *reader.SimpleMetricsReader
+	sender       Sender
+	dumpInterval time.Duration
+	pollDuration time.Duration
+	lastLogTime  time.Time
 }
 
 func NewMetricCollector(
 	storage storage.Storage[model.Metrics],
-	runtimeReader reader.Reader,
-	systemReader reader.Reader,
+	readers []Reader,
 	simpleReader *reader.SimpleMetricsReader,
 	sender Sender,
 	dumpInterval time.Duration,
 	pollDuration time.Duration,
 ) *MetricCollector {
 	return &MetricCollector{
-		storage:       storage,
-		runtimeReader: runtimeReader,
-		systemReader:  systemReader,
-		simpleReader:  simpleReader,
-		sender:        sender,
-		dumpInterval:  dumpInterval,
-		pollDuration:  pollDuration,
-		lastLogTime:   time.Now(),
+		storage:      storage,
+		readers:      readers,
+		simpleReader: simpleReader,
+		sender:       sender,
+		dumpInterval: dumpInterval,
+		pollDuration: pollDuration,
+		lastLogTime:  time.Now(),
 	}
 }
 
@@ -182,44 +188,26 @@ func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
 }
 
 func (mc *MetricCollector) collectAllMetrics() error {
-	// Collect runtime metrics
-	err := mc.runtimeReader.Refresh()
-	if err != nil {
-		return fmt.Errorf("can't refresh runtime metrics: %w", err)
-	}
-
-	runtimeMetrics, err := mc.runtimeReader.Fetch()
-	if err != nil {
-		return fmt.Errorf("can't fetch runtime metrics: %w", err)
-	}
-
-	for _, metric := range runtimeMetrics {
-		err = mc.storage.Set(metric.ID, metric)
+	for _, r := range mc.readers {
+		err := r.Refresh()
 		if err != nil {
-			return fmt.Errorf("can't store runtime metric %s: %w", metric.ID, err)
+			return fmt.Errorf("can't refresh runtime metrics: %w", err)
+		}
+
+		metrics, err := r.Fetch()
+		if err != nil {
+			return fmt.Errorf("can't fetch runtime metrics: %w", err)
+		}
+
+		for _, metric := range metrics {
+			err = mc.storage.Set(metric.ID, metric)
+			if err != nil {
+				return fmt.Errorf("can't store runtime metric %s: %w", metric.ID, err)
+			}
 		}
 	}
 
-	// Collect system metrics
-	err = mc.systemReader.Refresh()
-	if err != nil {
-		return fmt.Errorf("can't refresh system metrics: %w", err)
-	}
-
-	systemMetrics, err := mc.systemReader.Fetch()
-	if err != nil {
-		return fmt.Errorf("can't fetch system metrics: %w", err)
-	}
-
-	for _, metric := range systemMetrics {
-		err = mc.storage.Set(metric.ID, metric)
-		if err != nil {
-			return fmt.Errorf("can't store system metric %s: %w", metric.ID, err)
-		}
-	}
-
-	// Collect simple metrics (PollCount, RandomValue)
-	err = mc.simpleReader.Refresh()
+	err := mc.simpleReader.Refresh()
 	if err != nil {
 		return fmt.Errorf("can't refresh simple metrics: %w", err)
 	}

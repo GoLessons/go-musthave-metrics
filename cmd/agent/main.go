@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
 	"os"
@@ -95,9 +97,9 @@ func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
 	}
 
 	return agent.NewMetricCollector(
-		storage.NewMemStorage[agent.GaugeValue](),
-		storage.NewMemStorage[agent.CounterValue](),
-		agent.NewMemStatsReader(),
+		storage.NewMemStorage[model.Metrics](),
+		[]agent.Reader{reader.NewRuntimeMetricsReader(), reader.NewSystemMetricsReader()},
+		reader.NewSimpleMetricsReader(),
 		sender,
 		time.Duration(cfg.ReportInterval)*time.Second,
 		time.Duration(cfg.PollInterval)*time.Second,
