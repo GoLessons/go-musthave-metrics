@@ -179,32 +179,29 @@ func (mc *MetricCollector) fetchAllMetrics() ([]model.Metrics, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't get random value: %w", err)
 	}
-	metrics = append(metrics, model.Metrics{
-		ID:    RandomValue,
-		MType: model.Gauge,
-		Value: (*float64)(&randomValue),
-	})
+	metrics = append(metrics, *model.NewGauge(
+		RandomValue,
+		(*float64)(&randomValue),
+	))
 
 	poolCount, err := mc.counterStorage.Get(PollCount)
 	if err != nil {
 		return nil, fmt.Errorf("can't get poll count: %w", err)
 	}
-	metrics = append(metrics, model.Metrics{
-		ID:    PollCount,
-		MType: model.Counter,
-		Delta: (*int64)(&poolCount),
-	})
+	metrics = append(metrics, *model.NewCounter(
+		PollCount,
+		(*int64)(&poolCount),
+	))
 
 	for _, metricName := range mc.memStatReader.SupportedMetrics() {
 		metricValue, err := mc.gaugeStorage.Get(metricName)
 		if err != nil {
 			return nil, fmt.Errorf("can't get random value: %w", err)
 		}
-		metrics = append(metrics, model.Metrics{
-			ID:    metricName,
-			MType: model.Gauge,
-			Value: (*float64)(&metricValue),
-		})
+		metrics = append(metrics, *model.NewGauge(
+			metricName,
+			(*float64)(&metricValue),
+		))
 	}
 
 	return metrics, nil
