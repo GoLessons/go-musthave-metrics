@@ -19,6 +19,7 @@ type Config struct {
 	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
 	Batch          bool   `env:"BATCH" envDefault:"false"`
 	SecretKey      string `env:"KEY" envDefault:""`
+	RateLimit      int    `env:"RATE_LIMIT" envDefault:"0"`
 }
 
 func main() {
@@ -75,6 +76,7 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
 	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
 	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", cfg.SecretKey, "SecretKey for signing metrics")
+	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", cfg.RateLimit, "Rate limit for sending metrics")
 
 	return cfg, nil
 }
