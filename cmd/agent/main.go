@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent/collector"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
@@ -12,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -102,123 +102,9 @@ func collectAndSendMetrics(
 	dumpTicker := time.NewTicker(dumpInterval)
 	defer dumpTicker.Stop()
 
-	sendChan := make(chan []model.Metrics, 1)
-	var sendGroup sync.WaitGroup
+	sendChan, stopSender := collector.StartSenderPipeline(ctx, sender, rateLimit, batch, 1)
 
-	sendGroup.Add(1)
-	go agent.SenderWorker(ctx, sendChan, sender, rateLimit, batch, &sendGroup)
-
-	for {
-		select {
-		case <-ctx.Done():
-			close(sendChan)
-			sendGroup.Wait()
-			return
-		case <-pollTicker.C:
-			collectAllMetrics(ctx, stg, readers, simpleReader)
-		case <-dumpTicker.C:
-			metrics, err := fetchAllMetrics(stg)
-			if err != nil {
-				fmt.Printf("can't fetch metrics: %v\n", err)
-				continue
-			}
-
-			select {
-			case sendChan <- metrics:
-				simpleReader.Reset()
-			case <-ctx.Done():
-				close(sendChan)
-				sendGroup.Wait()
-				return
-			}
-		}
-	}
-}
-
-func collectAllMetrics(
-	ctx context.Context,
-	stg storage.Storage[model.Metrics],
-	readers []agent.Reader,
-	simpleReader *reader.SimpleMetricsReader,
-) {
-	var wg sync.WaitGroup
-
-	for _, r := range readers {
-		wg.Add(1)
-		go func(rd agent.Reader) {
-			defer wg.Done()
-			collectFromReader(stg, rd)
-		}(r)
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		collectFromSimpleReader(stg, simpleReader)
-	}()
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-ctx.Done():
-	}
-}
-
-func collectFromReader(stg storage.Storage[model.Metrics], rd agent.Reader) {
-	if err := rd.Refresh(); err != nil {
-		fmt.Printf("can't refresh reader: %v\n", err)
-		return
-	}
-
-	metrics, err := rd.Fetch()
-	if err != nil {
-		fmt.Printf("can't fetch metrics: %v\n", err)
-		return
-	}
-
-	for _, metric := range metrics {
-		if err := stg.Set(metric.ID, metric); err != nil {
-			fmt.Printf("can't store metric %s: %v\n", metric.ID, err)
-		}
-	}
-}
-
-func collectFromSimpleReader(stg storage.Storage[model.Metrics], simpleReader *reader.SimpleMetricsReader) {
-	if err := simpleReader.Refresh(); err != nil {
-		fmt.Printf("can't refresh simple reader: %v\n", err)
-		return
-	}
-
-	metrics, err := simpleReader.Fetch()
-	if err != nil {
-		fmt.Printf("can't fetch simple metrics: %v\n", err)
-		return
-	}
-
-	for _, metric := range metrics {
-		if err := stg.Set(metric.ID, metric); err != nil {
-			fmt.Printf("can't store simple metric %s: %v\n", metric.ID, err)
-		}
-	}
-}
-
-func fetchAllMetrics(stg storage.Storage[model.Metrics]) ([]model.Metrics, error) {
-	all, err := stg.GetAll()
-	if err != nil {
-		return nil, fmt.Errorf("can't get all metrics: %w", err)
-	}
-
-	metrics := make([]model.Metrics, 0, len(all))
-	for _, metric := range all {
-		metrics = append(metrics, metric)
-	}
-
-	return metrics, nil
+	collector.RunAgentLoop(ctx, pollTicker, dumpTicker, stg, readers, simpleReader, sendChan, stopSender)
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
