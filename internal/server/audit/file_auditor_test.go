@@ -58,10 +58,10 @@ func TestFileAuditor_WriteAndAppend(t *testing.T) {
 		t.Fatalf("unmarshal line2 error: %v", err)
 	}
 
-	if got1.Ts != 1 || got1.IpAddress != "127.0.0.1" || len(got1.Metrics) != 1 || got1.Metrics[0] != "A" {
+	if got1.TS != 1 || got1.IP != "127.0.0.1" || len(got1.Metrics) != 1 || got1.Metrics[0] != "A" {
 		t.Fatalf("line1 content mismatch: %+v", got1)
 	}
-	if got2.Ts != 2 || got2.IpAddress != "127.0.0.2" || len(got2.Metrics) != 1 || got2.Metrics[0] != "B" {
+	if got2.TS != 2 || got2.IP != "127.0.0.2" || len(got2.Metrics) != 1 || got2.Metrics[0] != "B" {
 		t.Fatalf("line2 content mismatch: %+v", got2)
 	}
 }
