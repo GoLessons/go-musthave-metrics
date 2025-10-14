@@ -30,7 +30,7 @@ func TestURLAuditor_SendsJSONAndSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a := NewURLAuditor(srv.URL, nil)
+	a := NewRemoteAuditor(srv.URL, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -52,7 +52,7 @@ func TestURLAuditor_FailureStatus(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a := NewURLAuditor(srv.URL, nil)
+	a := NewRemoteAuditor(srv.URL, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -63,7 +63,7 @@ func TestURLAuditor_FailureStatus(t *testing.T) {
 }
 
 func TestURLAuditor_EmptyURL(t *testing.T) {
-	a := NewURLAuditor("", nil)
+	a := NewRemoteAuditor("", nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
