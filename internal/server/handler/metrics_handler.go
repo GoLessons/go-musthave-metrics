@@ -3,17 +3,21 @@ package handler
 import (
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
+	"github.com/GoLessons/go-m
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
+	"net"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type metricsController struct {
 	metricService   service.MetricService
 	responseBuilder ResponseBuilder
 	logger          *zap.Logger
+	auditor         audit.Subject
 }
 
 type ResponseBuilder func(*http.ResponseWriter, *model.Metrics)
@@ -22,11 +26,13 @@ func NewMetricsController(
 	metricService service.MetricService,
 	responseBuilder ResponseBuilder,
 	logger *zap.Logger,
+	auditor audit.Subject,
 ) *metricsController {
 	return &metricsController{
 		metricService:   metricService,
 		responseBuilder: responseBuilder,
 		logger:          logger,
+		auditor:         auditor,
 	}
 }
 
@@ -58,6 +64,12 @@ func (h *metricsController) Update(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	h.responseBuilder(&w, &metricData)
+
+	if h.auditor != nil {
+		ip := clientIP(r)
+		item := audit.NewJournalItem(time.Now().Unix(), []string{metricData.ID}, ip)
+		h.auditor.NotifyAll(ctx, item)
+	}
 }
 
 func (h *metricsController) UpdateBatch(w http.ResponseWriter, r *http.Request) {
@@ -75,6 +87,16 @@ func (h *metricsController) UpdateBatch(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
+
+	if h.auditor != nil {
+		ip := clientIP(r)
+		names := make([]string, 0, len(metricsArray))
+		for _, m := range metricsArray {
+			names = append(names, m.ID)
+		}
+		item := audit.NewJournalItem(time.Now().Unix(), names, ip)
+		h.auditor.NotifyAll(ctx, item)
+	}
 }
 
 func JSONResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
@@ -106,4 +128,12 @@ func PlainResposeBuilder(w *http.ResponseWriter, metric *model.Metrics) {
 	if err != nil {
 		http.Error(*w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

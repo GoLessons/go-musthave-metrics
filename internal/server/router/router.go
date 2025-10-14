@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/handler"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
@@ -49,8 +50,20 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r := chi.NewRouter()
 
-		metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder, logger)
-		metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder, logger)
+		subject := audit.NewAuditSubject()
+		if cfg.AuditFile != "" {
+			subject.Register(audit.NewFileAuditor(cfg.AuditFile))
+		}
+		if cfg.AuditURL != "" {
+			subject.Register(audit.NewRemoteAuditor(cfg.AuditURL))
+		}
+		var auditSubject audit.Subject
+		if subject != nil {
+			auditSubject = subject
+		}
+
+		metricControllerJSON := handler.NewMetricsController(*metricService, handler.JSONResposeBuilder, logger, auditSubject)
+		metricControllerPlain := handler.NewMetricsController(*metricService, handler.PlainResposeBuilder, logger, auditSubject)
 
 		var signatureMiddleware *middleware.SignatureMiddleware
 		if cfg.Key != "" {
