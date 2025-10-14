@@ -9,9 +9,9 @@ type Auditor interface {
 }
 
 type JournalItem struct {
-	TS      int64    `json:"ts"`      // unix timestamp события
-	Metrics []string `json:"metrics"` // наименование полученных метрик
-	IP      string   `json:"ip"`      // IP адрес входящего запроса
+	TS      int64    `json:"ts"`
+	Metrics []string `json:"metrics"`
+	IP      string   `json:"ip_address"`
 }
 
 func NewJournalItem(ts int64, metrics []string, ipAddress string) *JournalItem {
