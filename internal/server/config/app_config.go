@@ -13,6 +13,8 @@ type Config struct {
 	DatabaseDsn string `env:"DATABASE_DSN"`
 	DumpConfig  DumpConfig
 	Key         string `env:"KEY"` // Ключ для подписи
+	AuditFile   string `env:"AUDIT_FILE"`
+	AuditURL    string `env:"AUDIT_URL"`
 }
 
 type DumpConfig struct {
@@ -62,6 +64,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
 	databaseDsn := flags.String("database-dsn", "", "Database DSN")
 	key := flags.String("key", "", "Key for signature verification")
+	auditFile := flags.String("audit-file", "", "Audit log file path")
+	auditURL := flags.String("audit-url", "", "Audit log URL")
 
 	flags.StringVar(address, "a", *address, "HTTP server address (short)")
 	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
@@ -83,6 +87,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		Address:     *address,
 		DatabaseDsn: *databaseDsn,
 		Key:         *key,
+		AuditFile:   *auditFile,
+		AuditURL:    *auditURL,
 		DumpConfig: DumpConfig{
 			Restore:         *restore,
 			StoreInterval:   *storeInterval,
@@ -118,6 +124,14 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		cfg.Key = envKey
+	}
+
+	if envAuditFile := os.Getenv("AUDIT_FILE"); envAuditFile != "" {
+		cfg.AuditFile = envAuditFile
+	}
+
+	if envAuditURL := os.Getenv("AUDIT_URL"); envAuditURL != "" {
+		cfg.AuditURL = envAuditURL
 	}
 
 	if args != nil {
@@ -193,6 +207,18 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 	if val, ok := (*args)["Key"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.Key = strVal
+		}
+	}
+
+	if val, ok := (*args)["AuditFile"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.AuditFile = strVal
+		}
+	}
+
+	if val, ok := (*args)["AuditURL"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.AuditURL = strVal
 		}
 	}
 }
