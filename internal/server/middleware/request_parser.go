@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
@@ -51,13 +52,17 @@ func MetricCtxFromBody(next http.Handler) http.Handler {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		defer r.Body.Close()
+
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		var metric model.Metrics
 		err = json.Unmarshal(body, &metric)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 
 		ctx := r.Context()
@@ -74,6 +79,8 @@ func MetricsListCtxFromBody(next http.Handler) http.Handler {
 			return
 		}
 		defer r.Body.Close()
+
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		var metrics []model.Metrics
 		err = json.Unmarshal(body, &metrics)

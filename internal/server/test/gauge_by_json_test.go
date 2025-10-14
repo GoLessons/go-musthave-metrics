@@ -11,7 +11,7 @@ import (
 )
 
 func TestUpdateGaugeJSON(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	gaugeDelta := 42.123
@@ -21,7 +21,7 @@ func TestUpdateGaugeJSON(t *testing.T) {
 		Value: &gaugeDelta,
 	}
 
-	resp, err := I.DoRequest(http.MethodPost, "/update", metric, "application/json")
+	resp, err := I.DoRequest(http.MethodPost, "/update", metric, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -33,7 +33,7 @@ func TestUpdateGaugeJSON(t *testing.T) {
 		MType: metric.MType,
 	}
 
-	resp, err = I.DoRequest(http.MethodPost, "/value", getMetric, "application/json")
+	resp, err = I.DoRequest(http.MethodPost, "/value", getMetric, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()

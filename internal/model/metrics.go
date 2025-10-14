@@ -17,3 +17,19 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"`
 	Hash  string   `json:"hash,omitempty"`
 }
+
+func NewGauge(ID string, Value *float64) *Metrics {
+	return &Metrics{
+		ID:    ID,
+		MType: Gauge,
+		Value: Value,
+	}
+}
+
+func NewCounter(ID string, Delta *int64) *Metrics {
+	return &Metrics{
+		ID:    ID,
+		MType: Counter,
+		Delta: Delta,
+	}
+}

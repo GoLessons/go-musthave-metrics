@@ -1,9 +1,11 @@
-package config
+package container
 
 import (
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	config2 "github.com/GoLessons/go-musthave-metrics/internal/config"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/router"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
@@ -13,7 +15,7 @@ import (
 )
 
 func InitContainer() container.Container {
-	cfg, err := LoadConfig(nil)
+	cfg, err := config.LoadConfig(nil)
 	if err != nil {
 		fmt.Printf("DI Error: %v\n", err)
 		os.Exit(1)
@@ -39,10 +41,10 @@ func InitContainer() container.Container {
 		},
 	)
 
-	container.SimpleRegisterFactory(&c, "db", DBFactory())
+	container.SimpleRegisterFactory(&c, "db", config2.DBFactory())
 	container.SimpleRegisterFactory(&c, "router", router.RouterFactory())
-	container.SimpleRegisterFactory(&c, "dumper", MetricDumperFactory())
-	container.SimpleRegisterFactory(&c, "restorer", MetricRestorerFactory())
+	container.SimpleRegisterFactory(&c, "dumper", config2.MetricDumperFactory())
+	container.SimpleRegisterFactory(&c, "restorer", config2.MetricRestorerFactory())
 
 	return c
 }

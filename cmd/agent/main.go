@@ -1,12 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent/collector"
+	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -17,6 +24,8 @@ type Config struct {
 	Plain          bool   `env:"PLAIN" envDefault:"false"`
 	EnableGzip     bool   `env:"GZIP" envDefault:"false"`
 	Batch          bool   `env:"BATCH" envDefault:"false"`
+	SecretKey      string `env:"KEY" envDefault:""`
+	RateLimit      int    `env:"RATE_LIMIT" envDefault:"0"`
 }
 
 func main() {
@@ -32,7 +41,6 @@ func main() {
 	}
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
-
 		if cfg.ReportInterval <= 0 {
 			return fmt.Errorf("report interval must be positive, got %d", cfg.ReportInterval)
 		}
@@ -40,8 +48,7 @@ func main() {
 			return fmt.Errorf("poll interval must be positive, got %d", cfg.PollInterval)
 		}
 
-		run(cfg)
-		return nil
+		return run(cfg)
 	}
 
 	rootCmd.FParseErrWhitelist.UnknownFlags = false
@@ -52,10 +59,52 @@ func main() {
 	}
 }
 
-func run(cfg *Config) {
-	metricCollector := MetricCollectorFactory(cfg)
-	defer metricCollector.Close()
-	metricCollector.CollectAndSendMetrics(cfg.Batch)
+func run(cfg *Config) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Получен сигнал завершения, завершаем работу...")
+		cancel()
+	}()
+
+	metricsStorage := storage.NewMemStorage[model.Metrics]()
+	readers := []agent.Reader{reader.NewRuntimeMetricsReader(), reader.NewSystemMetricsReader()}
+	simpleReader := reader.NewSimpleMetricsReader()
+	sender := createSender(cfg)
+	defer sender.Close()
+
+	pollDuration := time.Duration(cfg.PollInterval) * time.Second
+	dumpInterval := time.Duration(cfg.ReportInterval) * time.Second
+
+	collectAndSendMetrics(ctx, metricsStorage, readers, simpleReader, sender, pollDuration, dumpInterval, cfg.RateLimit, cfg.Batch)
+
+	return nil
+}
+
+func collectAndSendMetrics(
+	ctx context.Context,
+	stg storage.Storage[model.Metrics],
+	readers []agent.Reader,
+	simpleReader *reader.SimpleMetricsReader,
+	sender agent.Sender,
+	pollDuration, dumpInterval time.Duration,
+	rateLimit int,
+	batch bool,
+) {
+	pollTicker := time.NewTicker(pollDuration)
+	defer pollTicker.Stop()
+
+	dumpTicker := time.NewTicker(dumpInterval)
+	defer dumpTicker.Stop()
+
+	sendChan, stopSender := collector.StartSenderPipeline(ctx, sender, rateLimit, batch, 1)
+
+	collector.RunAgentLoop(ctx, pollTicker, dumpTicker, stg, readers, simpleReader, sendChan, stopSender)
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
@@ -72,24 +121,20 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
 	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
 	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
+	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", cfg.SecretKey, "SecretKey for signing metrics")
+	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", cfg.RateLimit, "Rate limit for sending metrics")
 
 	return cfg, nil
 }
 
-func MetricCollectorFactory(cfg *Config) *agent.MetricCollector {
-	var sender agent.Sender
+func createSender(cfg *Config) agent.Sender {
 	if cfg.Plain {
-		sender = agent.NewMetricURLSender(cfg.Address)
-	} else {
-		sender = agent.NewJSONSender(cfg.Address, cfg.EnableGzip)
+		return agent.NewMetricURLSender(cfg.Address)
 	}
 
-	return agent.NewMetricCollector(
-		storage.NewMemStorage[agent.GaugeValue](),
-		storage.NewMemStorage[agent.CounterValue](),
-		agent.NewMemStatsReader(),
-		sender,
-		time.Duration(cfg.ReportInterval)*time.Second,
-		time.Duration(cfg.PollInterval)*time.Second,
-	)
+	var signer *signature.Signer
+	if cfg.SecretKey != "" {
+		signer = signature.NewSign(cfg.SecretKey)
+	}
+	return agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer)
 }

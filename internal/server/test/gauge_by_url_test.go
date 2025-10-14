@@ -9,11 +9,11 @@ import (
 )
 
 func TestGauge(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	for _, test := range providerTestGauge() {
-		resp, err := I.DoRequest(test.method, test.path, nil, "text/plain")
+		resp, err := I.DoRequest(test.method, test.path, nil, map[string]string{"Content-Type": "text/plain"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 

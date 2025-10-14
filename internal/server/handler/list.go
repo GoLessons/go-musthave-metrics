@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"net/http"
@@ -66,9 +65,9 @@ func (controller *ListController) Get(w http.ResponseWriter, r *http.Request) {
 func (controller *ListController) renderMetric(metricName string, metricValue interface{}, w http.ResponseWriter) error {
 	var strVal string
 	switch v := metricValue.(type) {
-	case int, int8, int16, int32, int64, agent.CounterValue:
+	case int, int8, int16, int32, int64:
 		strVal = fmt.Sprintf("%d", v)
-	case float32, float64, agent.GaugeValue:
+	case float32, float64:
 		strVal = fmt.Sprintf("%f", v)
 	default:
 		return fmt.Errorf("unsupported metric: value := %s of %v", metricValue, v)

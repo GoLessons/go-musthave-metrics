@@ -11,7 +11,7 @@ import (
 )
 
 func TestUpdateBatchJSON(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	var counterDelta1 int64 = 42
@@ -42,7 +42,7 @@ func TestUpdateBatchJSON(t *testing.T) {
 		},
 	}
 
-	resp, err := I.DoRequest(http.MethodPost, "/updates", metrics, "application/json")
+	resp, err := I.DoRequest(http.MethodPost, "/updates", metrics, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -55,7 +55,7 @@ func TestUpdateBatchJSON(t *testing.T) {
 			MType: metric.MType,
 		}
 
-		valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, "application/json")
+		valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, map[string]string{"Content-Type": "application/json"})
 		require.NoError(t, err)
 		require.NotNil(t, valueResp)
 		defer valueResp.Body.Close()
@@ -84,7 +84,7 @@ func TestUpdateBatchJSON(t *testing.T) {
 }
 
 func TestUpdateBatchJSONInvalidMetrics(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	var counterDelta int64 = 42
@@ -175,7 +175,7 @@ func TestUpdateBatchJSONInvalidMetrics(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := I.DoRequest(http.MethodPost, "/updates", tt.metrics, "application/json")
+			resp, err := I.DoRequest(http.MethodPost, "/updates", tt.metrics, map[string]string{"Content-Type": "application/json"})
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 			defer resp.Body.Close()
@@ -186,7 +186,7 @@ func TestUpdateBatchJSONInvalidMetrics(t *testing.T) {
 }
 
 func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	var counterDelta1 int64 = 42
@@ -200,7 +200,7 @@ func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
 		},
 	}
 
-	resp, err := I.DoRequest(http.MethodPost, "/updates", firstUpdate, "application/json")
+	resp, err := I.DoRequest(http.MethodPost, "/updates", firstUpdate, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -215,7 +215,7 @@ func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
 		},
 	}
 
-	resp, err = I.DoRequest(http.MethodPost, "/updates", secondUpdate, "application/json")
+	resp, err = I.DoRequest(http.MethodPost, "/updates", secondUpdate, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -227,7 +227,7 @@ func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
 		MType: "counter",
 	}
 
-	valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, "application/json")
+	valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, valueResp)
 	defer valueResp.Body.Close()
@@ -246,7 +246,7 @@ func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
 }
 
 func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	gaugeValue1 := 42.123
@@ -260,7 +260,7 @@ func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
 		},
 	}
 
-	resp, err := I.DoRequest(http.MethodPost, "/updates", firstUpdate, "application/json")
+	resp, err := I.DoRequest(http.MethodPost, "/updates", firstUpdate, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -275,7 +275,7 @@ func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
 		},
 	}
 
-	resp, err = I.DoRequest(http.MethodPost, "/updates", secondUpdate, "application/json")
+	resp, err = I.DoRequest(http.MethodPost, "/updates", secondUpdate, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	defer resp.Body.Close()
@@ -287,7 +287,7 @@ func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
 		MType: "gauge",
 	}
 
-	valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, "application/json")
+	valueResp, err := I.DoRequest(http.MethodPost, "/value", getMetric, map[string]string{"Content-Type": "application/json"})
 	require.NoError(t, err)
 	require.NotNil(t, valueResp)
 	defer valueResp.Body.Close()
@@ -305,13 +305,13 @@ func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
 }
 
 func TestUpdateBatchJSONMethodNotAllowed(t *testing.T) {
-	I := NewTester(t)
+	I := NewTester(t, nil)
 	defer I.Shutdown()
 
 	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
 
 	for _, method := range methods {
-		resp, err := I.DoRequest(method, "/updates", nil, "application/json")
+		resp, err := I.DoRequest(method, "/updates", make([]string, 0), map[string]string{"Content-Type": "application/json"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		defer resp.Body.Close()
