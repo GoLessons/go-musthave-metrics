@@ -2,13 +2,12 @@ package audit
 
 import (
 	"context"
+	"github.com/goccy/go-json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/goccy/go-json"
 )
 
 func TestRemoteAuditor_SendsJSONAndSuccess(t *testing.T) {

@@ -3,11 +3,10 @@ package audit
 import (
 	"bufio"
 	"context"
+	"github.com/goccy/go-json"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/goccy/go-json"
 )
 
 func TestFileAuditor_WriteAndAppend(t *testing.T) {
