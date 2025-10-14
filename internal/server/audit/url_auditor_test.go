@@ -11,7 +11,7 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func TestURLAuditor_SendsJSONAndSuccess(t *testing.T) {
+func TestRemoteAuditor_SendsJSONAndSuccess(t *testing.T) {
 	var received []byte
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +46,7 @@ func TestURLAuditor_SendsJSONAndSuccess(t *testing.T) {
 	}
 }
 
-func TestURLAuditor_FailureStatus(t *testing.T) {
+func TestRemoteAuditor_FailureStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -62,7 +62,7 @@ func TestURLAuditor_FailureStatus(t *testing.T) {
 	}
 }
 
-func TestURLAuditor_EmptyURL(t *testing.T) {
+func TestRemoteAuditor_EmptyURL(t *testing.T) {
 	a := NewRemoteAuditor("", nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

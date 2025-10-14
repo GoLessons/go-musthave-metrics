@@ -14,7 +14,7 @@ func NewFileAuditor(filePath string) *FileAuditor {
 	return &FileAuditor{filePath: filePath}
 }
 
-func (a *FileAuditor) Journal(ctx context.Context, item *JournalItem) bool {
+func (a *FileAuditor) Journal(ctx context.Context, item *JournalItem) (ok bool) {
 	if a.filePath == "" || item == nil {
 		return false
 	}
@@ -28,16 +28,17 @@ func (a *FileAuditor) Journal(ctx context.Context, item *JournalItem) bool {
 	if err != nil {
 		return false
 	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
+	defer func() {
+		if cerr := f.Close(); cerr != nil && ok {
+			ok = false
 		}
-	}(f)
+	}()
 
 	if ctx.Err() != nil {
 		return false
 	}
-	_, err = f.Write(append(data, '\n'))
 
-	return err == nil
+	_, err = f.Write(append(data, '\n'))
+	ok = err == nil
+	return ok
 }
