@@ -9,12 +9,17 @@ import (
 )
 
 type Config struct {
-	Address     string `env:"ADDRESS"`
-	DatabaseDsn string `env:"DATABASE_DSN"`
-	DumpConfig  DumpConfig
-	Key         string `env:"KEY"` // Ключ для подписи
-	AuditFile   string `env:"AUDIT_FILE"`
-	AuditURL    string `env:"AUDIT_URL"`
+	Address         string `env:"ADDRESS"`
+	DatabaseDsn     string `env:"DATABASE_DSN"`
+	DumpConfig      DumpConfig
+	Key             string `env:"KEY"`
+	AuditFile       string `env:"AUDIT_FILE"`
+	AuditURL        string `env:"AUDIT_URL"`
+	PprofOnShutdown bool   `env:"PPROF_ON_SHUTDOWN"`
+	PprofDir        string `env:"PPROF_DIR"`
+	PprofFilename   string `env:"PPROF_FILENAME"`
+	PprofHTTP       bool   `env:"PPROF_HTTP"`
+	PprofHTTPAddr   string `env:"PPROF_HTTP_ADDR"`
 }
 
 type DumpConfig struct {
@@ -67,6 +72,12 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	auditFile := flags.String("audit-file", "", "Audit log file path")
 	auditURL := flags.String("audit-url", "", "Audit log URL")
 
+	pprofOnShutdown := flags.Bool("pprof-on-shutdown", false, "Enable heap profile write on shutdown")
+	pprofDir := flags.String("pprof-dir", "profiles", "Directory to store pprof files")
+	pprofFilename := flags.String("pprof-filename", "base.pprof", "Heap profile filename")
+	pprofHTTP := flags.Bool("pprof-http", false, "Expose net/http/pprof endpoints")
+	pprofHTTPAddr := flags.String("pprof-http-addr", ":6060", "pprof HTTP listen address")
+
 	flags.StringVar(address, "a", *address, "HTTP server address (short)")
 	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
 	flags.Uint64Var(storeInterval, "i", *storeInterval, "Store interval in seconds (short)")
@@ -94,8 +105,14 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			StoreInterval:   *storeInterval,
 			FileStoragePath: *fileStoragePath,
 		},
+		PprofOnShutdown: *pprofOnShutdown,
+		PprofDir:        *pprofDir,
+		PprofFilename:   *pprofFilename,
+		PprofHTTP:       *pprofHTTP,
+		PprofHTTPAddr:   *pprofHTTPAddr,
 	}
 
+	// ENV overrides
 	if databaseDsn := os.Getenv("DATABASE_DSN"); databaseDsn != "" {
 		cfg.DatabaseDsn = databaseDsn
 	}
@@ -132,6 +149,30 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 
 	if envAuditURL := os.Getenv("AUDIT_URL"); envAuditURL != "" {
 		cfg.AuditURL = envAuditURL
+	}
+
+	if v := os.Getenv("PPROF_ON_SHUTDOWN"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, wrapError("ошибка парсинга PPROF_ON_SHUTDOWN", err)
+		}
+		cfg.PprofOnShutdown = b
+	}
+	if v := os.Getenv("PPROF_DIR"); v != "" {
+		cfg.PprofDir = v
+	}
+	if v := os.Getenv("PPROF_FILENAME"); v != "" {
+		cfg.PprofFilename = v
+	}
+	if v := os.Getenv("PPROF_HTTP"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, wrapError("ошибка парсинга PPROF_HTTP", err)
+		}
+		cfg.PprofHTTP = b
+	}
+	if v := os.Getenv("PPROF_HTTP_ADDR"); v != "" {
+		cfg.PprofHTTPAddr = v
 	}
 
 	if args != nil {
@@ -219,6 +260,32 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 	if val, ok := (*args)["AuditURL"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.AuditURL = strVal
+		}
+	}
+
+	if val, ok := (*args)["PprofOnShutdown"]; ok {
+		if boolVal, ok := val.(bool); ok {
+			cfg.PprofOnShutdown = boolVal
+		}
+	}
+	if val, ok := (*args)["PprofDir"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.PprofDir = strVal
+		}
+	}
+	if val, ok := (*args)["PprofFilename"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.PprofFilename = strVal
+		}
+	}
+	if val, ok := (*args)["PprofHTTP"]; ok {
+		if boolVal, ok := val.(bool); ok {
+			cfg.PprofHTTP = boolVal
+		}
+	}
+	if val, ok := (*args)["PprofHTTPAddr"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.PprofHTTPAddr = strVal
 		}
 	}
 }

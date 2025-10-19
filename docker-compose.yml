@@ -21,3 +21,45 @@ services:
     healthcheck:
       test: [ 'CMD-SHELL', 'pg_isready -U metrics' ]
       interval: 15s
+  app:
+    image: golang:1.25-bookworm
+    container_name: metric-app
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      PATH: "/usr/local/go/bin:/go/bin:$PATH"
+      DATABASE_DSN: "postgres://${POSTGRES_USER:-metrics}:${POSTGRES_PASSWORD:-metrics}@db:5432/${POSTGRES_DB:-metrics}?sslmode=disable"
+      GOTOOLCHAIN: "auto"
+      PPROF_ON_SHUTDOWN: "${PPROF_ON_SHUTDOWN:-true}"
+      PPROF_DIR: "${PPROF_DIR:-profiles}"
+      PPROF_FILENAME: "${PPROF_FILENAME:-base.pprof}"
+      PPROF_HTTP: "${PPROF_HTTP:-true}"
+      PPROF_HTTP_ADDR: "${PPROF_HTTP_ADDR:-:6060}"
+      ADDRESS: "${ADDRESS:-:8080}"
+    ports:
+      - ${APP_PORT:-8080}:8080
+      - ${PPROF_PORT:-6060}:6060
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
+      - "/usr/local/go/bin/go build -buildvcs=false -o /tmp/server ./cmd/server && exec /tmp/server"
+    stop_grace_period: 35s
+    # init: true  # опционально, для корректной обработки сигналов и зомби-процессов
+  bench:
+    image: golang:1.25-bookworm
+    container_name: metric-bench
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      DATABASE_DSN: "postgres://${POSTGRES_USER:-metrics}:${POSTGRES_PASSWORD:-metrics}@db:5432/${POSTGRES_DB:-metrics}?sslmode=disable"
+      GOTOOLCHAIN: "auto"
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
+      - "/usr/local/go/bin/go version && /usr/local/go/bin/go test -run='^$' -bench='${BENCH_PATTERN:-.}' -benchmem -count=1 ${BENCH_PKGS:-./internal/server/service ./internal/server/middleware ./internal/server/handler ./internal/server/router ./internal/common/storage}"
