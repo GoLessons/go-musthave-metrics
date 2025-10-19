@@ -2,10 +2,11 @@ package reader
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"sync"
 )
 
 type SystemMetricsReader struct {

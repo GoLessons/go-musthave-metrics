@@ -2,8 +2,9 @@ package audit
 
 import (
 	"context"
-	"github.com/goccy/go-json"
 	"os"
+
+	"github.com/goccy/go-json"
 )
 
 type FileAuditor struct {

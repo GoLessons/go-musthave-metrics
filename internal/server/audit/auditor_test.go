@@ -1,8 +1,9 @@
 package audit
 
 import (
-	"github.com/goccy/go-json"
 	"testing"
+
+	"github.com/goccy/go-json"
 )
 
 func TestJournalItemJSON(t *testing.T) {

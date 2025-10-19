@@ -2,12 +2,13 @@ package reader
 
 import (
 	"fmt"
+	"math"
+	"testing"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math"
-	"testing"
 )
 
 func TestSystemMetricsRefresh(t *testing.T) {

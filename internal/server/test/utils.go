@@ -4,6 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/config"
@@ -15,12 +22,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"strings"
-	"testing"
 )
 
 type tester struct {

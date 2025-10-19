@@ -4,17 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
-	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
-	container2 "github.com/GoLessons/go-musthave-metrics/internal/server/container"
-	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/middleware"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
-	"github.com/GoLessons/go-musthave-metrics/pkg/container"
-	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
-	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 	"log"
 	"net"
 	"net/http"
@@ -26,7 +15,30 @@ import (
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	apiModel "github.com/GoLessons/go-musthave-metrics/internal/model"
+	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
+	container2 "github.com/GoLessons/go-musthave-metrics/internal/server/container"
+	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
+	"github.com/GoLessons/go-musthave-metrics/pkg/container"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
+	"github.com/go-chi/chi/v5"
+	"github.com/goccy/go-json"
+	"go.uber.org/zap"
 )
+
+func preWarmDecoders() {
+	// Прогреваем декодер для одиночного объекта метрики
+	var m apiModel.Metrics
+	_ = json.Unmarshal([]byte("{}"), &m)
+
+	// Прогреваем декодер для списка метрик (batch обновления)
+	var ml []apiModel.Metrics
+	_ = json.Unmarshal([]byte("[]"), &ml)
+}
 
 func main() {
 	c := container2.InitContainer()
@@ -62,19 +74,22 @@ func main() {
 
 	serverLogger.Info("Server config", zap.Any("cfg", cfg))
 
-	db, err := container.GetService[sql.DB](c, "db")
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-	defer func(db *sql.DB) {
-		err := db.Close()
+	var db *sql.DB
+	if cfg.DatabaseDsn != "" {
+		db, err = container.GetService[sql.DB](c, "db")
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
-	}(db)
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+		}(db)
 
-	tryMigrateDB(cfg, db, serverLogger)
+		tryMigrateDB(cfg, db, serverLogger)
+	}
 
 	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
 	if err != nil {
@@ -125,8 +140,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	loggingMiddleware := middleware.NewLoggingMiddleware(serverLogger)
-
 	r, err := container.GetService[chi.Mux](c, "router")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -145,7 +158,7 @@ func main() {
 		Addr:         listener.Addr().String(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
-		Handler:      loggingMiddleware(r),
+		Handler:      r,
 	}
 
 	quit := make(chan os.Signal, 1)

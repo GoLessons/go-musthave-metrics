@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/Masterminds/squirrel"
 	"go.uber.org/zap"
-	"sync"
 )
 
 type dbMetricDumper struct {

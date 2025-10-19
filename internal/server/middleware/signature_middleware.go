@@ -2,10 +2,11 @@ package middleware
 
 import (
 	"bytes"
-	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
+	"go.uber.org/zap"
 )
 
 type SignatureMiddleware struct {

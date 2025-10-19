@@ -3,11 +3,12 @@ package collector
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"time"
 )
 
 func RunAgentLoop(

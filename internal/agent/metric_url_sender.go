@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"resty.dev/v3"
 )

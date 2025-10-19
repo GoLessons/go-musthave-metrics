@@ -1,16 +1,17 @@
 package handler
 
 import (
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
-	"net"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 type metricsController struct {

@@ -1,14 +1,15 @@
 package test
 
 import (
+	"io"
+	"net/http"
+	"testing"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io"
-	"net/http"
-	"testing"
 )
 
 type metricTest struct {

@@ -1,10 +1,11 @@
 package reader
 
 import (
+	"testing"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestRuntimeMetricsRefresh(t *testing.T) {

@@ -1,9 +1,10 @@
 package agent
 
 import (
-	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"sync"
 	"testing"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
 )
 
 type simpleSenderMock struct {
