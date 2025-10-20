@@ -18,8 +18,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	httppprof "net/http/pprof"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"syscall"
 	"time"
 )
@@ -38,6 +42,22 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if cfg.PprofHTTP {
+		addr := cfg.PprofHTTPAddr
+		mux := http.NewServeMux()
+		mux.HandleFunc("/debug/pprof/", httppprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", httppprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", httppprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", httppprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", httppprof.Trace)
+		go func() {
+			serverLogger.Info("pprof HTTP enabled", zap.String("address", addr))
+			if err := http.ListenAndServe(addr, mux); err != nil {
+				serverLogger.Error("pprof HTTP server error", zap.Error(err))
+			}
+		}()
 	}
 
 	serverLogger.Info("Server config", zap.Any("cfg", cfg))
@@ -149,6 +169,28 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		serverLogger.Debug("Ошибка при завершении работы сервера", zap.Error(err))
 	}
+
+	// Запись heap-профиля при завершении (если включено)
+	if cfg.PprofOnShutdown {
+		if err := os.MkdirAll(cfg.PprofDir, 0755); err != nil {
+			serverLogger.Error("Ошибка создания директории профилей", zap.Error(err))
+		} else {
+			p := filepath.Join(cfg.PprofDir, cfg.PprofFilename)
+			f, err := os.Create(p)
+			if err != nil {
+				serverLogger.Error("Ошибка создания файла профиля", zap.Error(err))
+			} else {
+				runtime.GC()
+				if err := pprof.WriteHeapProfile(f); err != nil {
+					serverLogger.Error("Ошибка записи heap-профиля", zap.Error(err))
+				} else {
+					serverLogger.Info("Heap-профиль сохранён", zap.String("path", p))
+				}
+				_ = f.Close()
+			}
+		}
+	}
+
 	serverLogger.Debug("Сервер остановлен")
 }
 
