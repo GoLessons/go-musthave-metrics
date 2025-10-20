@@ -2,8 +2,9 @@ package handler
 
 import (
 	"database/sql"
-	"go.uber.org/zap"
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
 type pingHandler struct {
@@ -16,10 +17,8 @@ func NewPingHandler(db *sql.DB, logger *zap.Logger) *pingHandler {
 }
 
 func (h *pingHandler) Ping(w http.ResponseWriter, r *http.Request) {
-	err := h.db.Ping()
-	if err != nil {
-		h.logger.Error("DB ping failed", zap.Error(err))
-		http.Error(w, "DB ping failed", http.StatusInternalServerError)
+	if h.db == nil {
+		http.Error(w, "DB not configured", http.StatusServiceUnavailable)
 		return
 	}
 

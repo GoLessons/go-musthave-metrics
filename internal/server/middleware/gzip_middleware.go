@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"github.com/GoLessons/go-musthave-metrics/internal/common"
 	"net/http"
 	"strings"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/common"
 )
 
 func GzipMiddleware(next http.Handler) http.Handler {

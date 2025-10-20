@@ -1,15 +1,16 @@
 package test
 
 import (
+	"math/rand"
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"net/http"
-	"testing"
-	"time"
 )
 
 func TestCounterWithGzip(t *testing.T) {

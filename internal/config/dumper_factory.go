@@ -3,11 +3,12 @@ package config
 import (
 	"database/sql"
 	"fmt"
+	"os"
+
 	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"go.uber.org/zap"
-	"os"
 )
 
 func MetricDumperFactory() container.Factory[*service.MetricDumper] {

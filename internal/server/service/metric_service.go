@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"

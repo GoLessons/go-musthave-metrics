@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sync"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/Masterminds/squirrel"
-	"sync"
 )
 
 type dbMetricRestorer struct {

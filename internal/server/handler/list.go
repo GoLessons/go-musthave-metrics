@@ -2,9 +2,10 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"net/http"
 )
 
 type ListController struct {

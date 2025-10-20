@@ -2,15 +2,16 @@ package service
 
 import (
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
-	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
-	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
+	serverModel "github.com/GoLessons/go-musthave-metrics/internal/server/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 )
 
 type MetricDumper interface {

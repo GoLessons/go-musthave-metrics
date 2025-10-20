@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"net/http"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/goccy/go-json"
-	"net/http"
 	"resty.dev/v3"
 )
 

@@ -3,10 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"sync"
 	"time"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 )
 
 func SenderWorker(

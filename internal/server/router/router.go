@@ -2,6 +2,8 @@ package router
 
 import (
 	"database/sql"
+	"net/http"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
@@ -13,7 +15,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 func RouterFactory() container.Factory[*chi.Mux] {
@@ -38,9 +39,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			return nil, err
 		}
 
-		db, err := container.GetService[sql.DB](c, "db")
-		if err != nil {
-			return nil, err
+		var db *sql.DB
+		if svc, err := container.GetService[sql.DB](c, "db"); err == nil {
+			db = svc
 		}
 
 		cfg, err := container.GetService[config.Config](c, "config")
@@ -50,6 +51,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r := chi.NewRouter()
 
+		r.Use(middleware.NewLoggingMiddleware(logger))
 		subject := audit.NewAuditSubject()
 		if cfg.AuditFile != "" {
 			subject.Register(audit.NewFileAuditor(cfg.AuditFile))

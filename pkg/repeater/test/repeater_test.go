@@ -2,10 +2,11 @@ package test
 
 import (
 	"errors"
-	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRepeatSuccessFirstAttempt(t *testing.T) {

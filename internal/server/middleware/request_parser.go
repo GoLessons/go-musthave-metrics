@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server"
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
-	"io"
-	"net/http"
-	"strconv"
 )
 
 func MetricCtxFromPath(next http.Handler) http.Handler {

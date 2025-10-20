@@ -2,10 +2,11 @@ package service
 
 import (
 	"fmt"
-	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"github.com/goccy/go-json"
 	"os"
 	"sync"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/goccy/go-json"
 )
 
 type fileMetricRestorer struct {

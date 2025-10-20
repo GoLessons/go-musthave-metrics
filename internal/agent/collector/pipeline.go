@@ -2,9 +2,10 @@ package collector
 
 import (
 	"context"
+	"sync"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"sync"
 )
 
 func StartSenderPipeline(

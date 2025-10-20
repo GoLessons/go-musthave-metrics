@@ -2,6 +2,7 @@ package config
 
 import (
 	"database/sql"
+
 	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	_ "github.com/jackc/pgx/v5/stdlib"
