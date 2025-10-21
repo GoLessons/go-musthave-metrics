@@ -63,3 +63,18 @@ services:
     entrypoint: [ "/bin/bash", "-lc" ]
     command:
       - "/usr/local/go/bin/go version && /usr/local/go/bin/go test -run='^$' -bench='${BENCH_PATTERN:-.}' -benchmem -count=1 ${BENCH_PKGS:-./internal/server/service ./internal/server/middleware ./internal/server/handler ./internal/server/router ./internal/common/storage}"
+  lint:
+    build:
+      context: .
+      dockerfile: .docker/go/Dockerfile
+    container_name: metric-lint
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      PATH: "/usr/local/go/bin:/go/bin:$PATH"
+      GOTOOLCHAIN: "auto"
+      GOFLAGS: "-buildvcs=false"
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
+      - "export PATH=\"/usr/local/go/bin:/go/bin:$PATH\" && go version && gofmt -s -w . && goimports -w . && go vet ./... && go run ./cmd/linter ./..."
