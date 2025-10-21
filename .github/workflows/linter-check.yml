@@ -1,0 +1,28 @@
+name: My linter check
+
+on:
+  pull_request:
+
+jobs:
+  custom-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Build custom linter
+        run: |
+          set -e
+          mkdir -p ./bin
+          go build -o ./bin/mylinter ./cmd/linter
+
+      - name: Run custom linter
+        run: |
+          set -e
+          ./bin/mylinter ./...
