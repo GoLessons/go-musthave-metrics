@@ -52,7 +52,8 @@ var testsByBody = []metricTest{
 }
 
 func TestMetricsNotFound(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	for _, tt := range testsByBody {
@@ -71,7 +72,8 @@ func TestMetricsNotFound(t *testing.T) {
 }
 
 func TestMetricsExists(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	expectedCounters := map[string]int64{}
@@ -136,7 +138,8 @@ func TestMetricsExists(t *testing.T) {
 }
 
 func TestMetricsNotFoundGzip(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	for _, tt := range testsByBody {
@@ -162,7 +165,8 @@ func TestMetricsNotFoundGzip(t *testing.T) {
 }
 
 func TestMetricsExistsGzip(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	expectedCounters := map[string]int64{}

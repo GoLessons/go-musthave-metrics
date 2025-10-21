@@ -12,7 +12,8 @@ import (
 )
 
 func TestUpdateCounterJSON(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta int64 = 42

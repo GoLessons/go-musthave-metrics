@@ -2,8 +2,6 @@ package config
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
 
 	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
@@ -24,14 +22,12 @@ func MetricDumperFactory() container.Factory[*service.MetricDumper] {
 		} else {
 			db, err := container.GetService[sql.DB](c, "db")
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				return nil, err
 			}
 
 			logger, err := container.GetService[zap.Logger](c, "logger")
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				return nil, err
 			}
 
 			dumper = service.NewDBMetricDumper(db, logger)
@@ -54,8 +50,7 @@ func MetricRestorerFactory() container.Factory[*service.MetricRestorer] {
 		} else {
 			db, err := container.GetService[sql.DB](c, "db")
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				return nil, err
 			}
 
 			restorer = service.NewDBMetricRestorer(db)

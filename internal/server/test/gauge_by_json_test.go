@@ -12,7 +12,8 @@ import (
 )
 
 func TestUpdateGaugeJSON(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	gaugeDelta := 42.123

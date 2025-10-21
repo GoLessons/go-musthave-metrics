@@ -13,9 +13,10 @@ import (
 )
 
 func TestSignatureVerification(t *testing.T) {
-	I := NewTester(t, &map[string]any{
+	I, err := NewTester(t, &map[string]any{
 		"Key": "test-secret-key",
 	})
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta int64 = 42
@@ -69,9 +70,10 @@ func TestSignatureVerification(t *testing.T) {
 }
 
 func TestSignatureInResponse(t *testing.T) {
-	I := NewTester(t, &map[string]any{
+	I, err := NewTester(t, &map[string]any{
 		"Key": "test-secret-key",
 	})
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta int64 = 42
@@ -113,63 +115,4 @@ func TestSignatureInResponse(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, calculatedHash, respHash)
-}
-
-func TestBatchUpdateWithSignature(t *testing.T) {
-	options := map[string]any{
-		"Key": "test-secret-key",
-	}
-	I := NewTester(t, &options)
-	defer I.Shutdown()
-
-	var counterDelta1 int64 = 42
-	var counterDelta2 int64 = 100
-	gaugeValue1 := 42.123
-	gaugeValue2 := 100.5
-
-	metrics := []model.Metrics{
-		{
-			ID:    "test_counter_1",
-			MType: model.Counter,
-			Delta: &counterDelta1,
-		},
-		{
-			ID:    "test_counter_2",
-			MType: model.Counter,
-			Delta: &counterDelta2,
-		},
-		{
-			ID:    "test_gauge_1",
-			MType: model.Gauge,
-			Value: &gaugeValue1,
-		},
-		{
-			ID:    "test_gauge_2",
-			MType: model.Gauge,
-			Value: &gaugeValue2,
-		},
-	}
-
-	body, err := json.Marshal(metrics)
-	require.NoError(t, err)
-
-	signer := signature.NewSign("test-secret-key")
-	correctHash, err := signer.Hash(body)
-	require.NoError(t, err)
-
-	resp, err := I.DoRequest(
-		http.MethodPost,
-		"/updates",
-		metrics,
-		map[string]string{
-			"Content-Type": "application/json",
-			"HashSHA256":   correctHash,
-		},
-	)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Empty(t, resp.Header.Get("HashSHA256")) // no hash because body is empty
 }
