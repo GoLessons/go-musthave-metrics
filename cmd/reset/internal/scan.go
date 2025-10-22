@@ -30,7 +30,7 @@ func ScanPackages(dir string) ([]PackageInfo, error) {
 			return nil
 		}
 		for _, pkg := range pkgs {
-			if pinfo, ok := buildPackageInfo(path, pkg, fset); ok {
+			if pinfo, ok := buildPackageInfo(path, pkg.Files, pkg.Name, fset); ok {
 				result = append(result, pinfo)
 			}
 		}
@@ -106,9 +106,9 @@ func hasGenerateResetTag(f *ast.File, fset *token.FileSet, ts *ast.TypeSpec) boo
 	return false
 }
 
-func collectExistingResetMethods(pkg *ast.Package) map[string]bool {
+func collectExistingResetMethodsFiles(files map[string]*ast.File) map[string]bool {
 	m := make(map[string]bool)
-	for _, f := range pkg.Files {
+	for _, f := range files {
 		for _, decl := range f.Decls {
 			fd, ok := decl.(*ast.FuncDecl)
 			if !ok || fd.Recv == nil {
@@ -146,16 +146,16 @@ func receiverBaseName(expr ast.Expr) string {
 	}
 }
 
-func buildPackageInfo(path string, pkg *ast.Package, fset *token.FileSet) (PackageInfo, bool) {
+func buildPackageInfo(path string, files map[string]*ast.File, pkgName string, fset *token.FileSet) (PackageInfo, bool) {
 	pinfo := PackageInfo{
 		Dir:     path,
-		Package: pkg.Name,
+		Package: pkgName,
 	}
 
-	existing := collectExistingResetMethods(pkg)
+	existing := collectExistingResetMethodsFiles(files)
 	seen := make(map[string]struct{})
 
-	for _, f := range pkg.Files {
+	for _, f := range files {
 		collectStructs(f, fset, existing, seen, &pinfo)
 	}
 
