@@ -182,7 +182,8 @@ func collectStructs(f *ast.File, fset *token.FileSet, existing map[string]bool, 
 			if !ok {
 				continue
 			}
-			if _, ok := ts.Type.(*ast.StructType); !ok {
+			st, ok := ts.Type.(*ast.StructType)
+			if !ok {
 				continue
 			}
 			if !hasGenerateResetTag(f, fset, ts) {
@@ -200,6 +201,7 @@ func collectStructs(f *ast.File, fset *token.FileSet, existing map[string]bool, 
 			pinfo.Structs = append(pinfo.Structs, StructInfo{
 				Name:       name,
 				TypeParams: extractTypeParams(ts),
+				Fields:     extractFields(st),
 			})
 			seen[name] = struct{}{}
 		}
@@ -217,4 +219,48 @@ func extractTypeParams(ts *ast.TypeSpec) []string {
 		}
 	}
 	return params
+}
+
+func extractFields(st *ast.StructType) []FieldInfo {
+	if st.Fields == nil || len(st.Fields.List) == 0 {
+		return nil
+	}
+	var out []FieldInfo
+	for _, fld := range st.Fields.List {
+		var names []string
+		embedded := false
+		if len(fld.Names) == 0 {
+			embedded = true
+			n := embeddedFieldName(fld.Type)
+			if n != "" {
+				names = []string{n}
+			}
+		} else {
+			for _, n := range fld.Names {
+				names = append(names, n.Name)
+			}
+		}
+		if len(names) == 0 {
+			continue
+		}
+		out = append(out, FieldInfo{
+			Names:    names,
+			Type:     fld.Type,
+			Embedded: embedded,
+		})
+	}
+	return out
+}
+
+func embeddedFieldName(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		return embeddedFieldName(t.X)
+	case *ast.SelectorExpr:
+		return t.Sel.Name
+	default:
+		return ""
+	}
 }
