@@ -4,6 +4,7 @@ import "sync"
 
 type Resettable interface {
 	Reset()
+	comparable
 }
 
 type Pool[T Resettable] struct {
@@ -30,7 +31,8 @@ func (pl *Pool[T]) Get() T {
 }
 
 func (pl *Pool[T]) Put(x T) {
-	if any(x) == nil {
+	var null T
+	if x == null {
 		return
 	}
 	x.Reset()
