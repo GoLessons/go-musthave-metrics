@@ -3,6 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/collector"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
@@ -12,10 +17,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 type Config struct {
