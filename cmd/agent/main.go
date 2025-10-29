@@ -13,6 +13,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/buildinfo"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"github.com/caarlos0/env"
 	"github.com/spf13/cobra"
@@ -29,7 +30,12 @@ type Config struct {
 	RateLimit      int    `env:"RATE_LIMIT" envDefault:"0"`
 }
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func main() {
+	buildinfo.PrintBuildInfo(buildVersion, buildDate, buildCommit)
 	var rootCmd = &cobra.Command{
 		Use:   "agent",
 		Short: "Metrics agent for collecting and sending metrics",

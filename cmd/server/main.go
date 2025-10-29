@@ -23,12 +23,17 @@ import (
 	database "github.com/GoLessons/go-musthave-metrics/internal/server/db"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/model"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/service"
+	"github.com/GoLessons/go-musthave-metrics/internal/common/buildinfo"
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"github.com/GoLessons/go-musthave-metrics/pkg/repeater"
 	"github.com/go-chi/chi/v5"
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
 )
+
+var buildVersion string
+var buildDate string
+var buildCommit string
 
 func preWarmDecoders() {
 	// Прогреваем декодер для одиночного объекта метрики
@@ -41,6 +46,7 @@ func preWarmDecoders() {
 }
 
 func main() {
+	buildinfo.PrintBuildInfo(buildVersion, buildDate, buildCommit)
 	c, err := container2.InitContainer()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
