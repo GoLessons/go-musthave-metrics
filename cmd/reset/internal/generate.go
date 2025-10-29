@@ -28,35 +28,33 @@ func BuildPackageContent(p PackageInfo) string {
 func renderResetMethod(s StructInfo) string {
 	var b strings.Builder
 
-	// Method signature (without the body yet)
-	b.Wr
 	b.WriteString("func (x *")
 	b.WriteString(s.Name)
 	if len(s.TypeParams) > 0 {
 		b.WriteString("[")
 		b.WriteString(strings.Join(s.TypeParams, ", "))
 		b.WriteString("]")
+	}
 	b.WriteString(") Reset() ")
-	b.WriteString(") Reset() {\n")
-ecide empty vs multiline
-	var 
 
+	// Формируем тело отдельно, чтобы решить — пустое или многострочное
+	var body strings.Builder
 	for _, f := range s.Fields {
 		for _, name := range f.Names {
+			r := newExprRenderer(f.Type)
 			r.RenderReset(&body, "x."+name, "", true)
-			r.RenderReset(&b, "x."+name, "", true)
 		}
 	}
+
 	if body.Len() == 0 {
-		// Compact empty body on one line
+		// Компактное пустое тело в одну строку
 		b.WriteString("{}\n")
 	} else {
-		// Multiline body with resets
+		// Многострочное тело со сбросами полей
 		b.WriteString("{\n")
 		b.WriteString(body.String())
 		b.WriteString("}\n")
 	}
 
-	b.WriteString("}\n")
 	return b.String()
 }
