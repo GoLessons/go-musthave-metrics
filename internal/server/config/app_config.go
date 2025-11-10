@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseDsn     string `env:"DATABASE_DSN"`
 	DumpConfig      DumpConfig
 	Key             string `env:"KEY"`
+	CryptoKey       string `env:"CRYPTO_KEY"`
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
 	PprofOnShutdown bool   `env:"PPROF_ON_SHUTDOWN"`
@@ -69,6 +70,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
 	databaseDsn := flags.String("database-dsn", "", "Database DSN")
 	key := flags.String("key", "", "Key for signature verification")
+	cryptoKey := flags.String("crypto-key", "", "Path to RSA private key for request decryption")
 	auditFile := flags.String("audit-file", "", "Audit log file path")
 	auditURL := flags.String("audit-url", "", "Audit log URL")
 
@@ -98,6 +100,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		Address:     *address,
 		DatabaseDsn: *databaseDsn,
 		Key:         *key,
+		CryptoKey:   *cryptoKey,
 		AuditFile:   *auditFile,
 		AuditURL:    *auditURL,
 		DumpConfig: DumpConfig{
@@ -141,6 +144,9 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		cfg.Key = envKey
+	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		cfg.CryptoKey = envCryptoKey
 	}
 
 	if envAuditFile := os.Getenv("AUDIT_FILE"); envAuditFile != "" {

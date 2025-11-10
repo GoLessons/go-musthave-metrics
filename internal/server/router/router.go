@@ -73,6 +73,15 @@ func RouterFactory() container.Factory[*chi.Mux] {
 			signatureMiddleware = middleware.NewSignatureMiddleware(signer, logger)
 		}
 
+		var decryptMiddleware *middleware.DecryptMiddleware
+		if cfg.CryptoKey != "" {
+			decrypter, err := middleware.NewDecrypterFromFile(cfg.CryptoKey)
+			if err != nil {
+				return nil, err
+			}
+			decryptMiddleware = middleware.NewDecryptMiddleware(decrypter, logger)
+		}
+
 		r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
 			func(r chi.Router) {
 				r.Use(middleware.MetricCtxFromPath)
@@ -86,6 +95,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
 			r.Use(middleware.GzipMiddleware)
+			if decryptMiddleware != nil {
+				r.Use(decryptMiddleware.DecryptBody)
+			}
 			r.Use(middleware.MetricCtxFromPath)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
@@ -100,6 +112,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				r.Use(signatureMiddleware.VerifySignature)
 			}
 			r.Use(middleware.GzipMiddleware)
+			if decryptMiddleware != nil {
+				r.Use(decryptMiddleware.DecryptBody)
+			}
 			r.Use(middleware.MetricCtxFromBody)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
@@ -117,6 +132,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				r.Use(signatureMiddleware.VerifySignature)
 			}
 			r.Use(middleware.GzipMiddleware)
+			if decryptMiddleware != nil {
+				r.Use(decryptMiddleware.DecryptBody)
+			}
 			r.Use(middleware.MetricsListCtxFromBody)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
@@ -134,6 +152,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 					r.Use(signatureMiddleware.VerifySignature)
 				}
 				r.Use(middleware.GzipMiddleware)
+				if decryptMiddleware != nil {
+					r.Use(decryptMiddleware.DecryptBody)
+				}
 				r.Use(middleware.MetricCtxFromBody)
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
