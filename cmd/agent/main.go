@@ -28,6 +28,7 @@ type Config struct {
 	Batch          bool   `env:"BATCH" envDefault:"false"`
 	SecretKey      string `env:"KEY" envDefault:""`
 	RateLimit      int    `env:"RATE_LIMIT" envDefault:"0"`
+	CryptoKey      string `env:"CRYPTO_KEY" envDefault:""`
 }
 
 var buildVersion string
@@ -82,7 +83,10 @@ func run(cfg *Config) error {
 	metricsStorage := storage.NewMemStorage[model.Metrics]()
 	readers := []agent.Reader{reader.NewRuntimeMetricsReader(), reader.NewSystemMetricsReader()}
 	simpleReader := reader.NewSimpleMetricsReader()
-	sender := createSender(cfg)
+	sender, err := createSender(cfg)
+	if err != nil {
+		return err
+	}
 	defer sender.Close()
 
 	pollDuration := time.Duration(cfg.PollInterval) * time.Second
@@ -130,18 +134,29 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
 	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", cfg.SecretKey, "SecretKey for signing metrics")
 	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", cfg.RateLimit, "Rate limit for sending metrics")
+	cmd.Flags().StringVarP(&cfg.CryptoKey, "crypto-key", "", cfg.CryptoKey, "Public key or certificate path for payload encryption")
 
 	return cfg, nil
 }
 
-func createSender(cfg *Config) agent.Sender {
+func createSender(cfg *Config) (agent.Sender, error) {
 	if cfg.Plain {
-		return agent.NewMetricURLSender(cfg.Address)
+		return agent.NewMetricURLSender(cfg.Address), nil
 	}
 
 	var signer *signature.Signer
 	if cfg.SecretKey != "" {
 		signer = signature.NewSign(cfg.SecretKey)
 	}
-	return agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer)
+
+	var encrypter *agent.Encrypter
+	if cfg.CryptoKey != "" {
+		e, err := agent.NewEncrypterFromFile(cfg.CryptoKey)
+		if err != nil {
+			return nil, err
+		}
+		encrypter = e
+	}
+
+	return agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer, encrypter), nil
 }

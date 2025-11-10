@@ -16,9 +16,10 @@ type jsonSender struct {
 	client     *resty.Client
 	enableGzip bool
 	signer     *signature.Signer
+	encrypter  *Encrypter
 }
 
-func NewJSONSender(address string, enableGzip bool, signer *signature.Signer) *jsonSender {
+func NewJSONSender(address string, enableGzip bool, signer *signature.Signer, encrypter *Encrypter) *jsonSender {
 	client := resty.New().SetTransport(&http.Transport{
 		DisableCompression: true,
 	})
@@ -30,6 +31,7 @@ func NewJSONSender(address string, enableGzip bool, signer *signature.Signer) *j
 		client:     client,
 		enableGzip: enableGzip,
 		signer:     signer,
+		encrypter:  encrypter,
 	}
 }
 
@@ -63,19 +65,6 @@ func (sender *jsonSender) prepareBody(data interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal: %w", err)
 	}
-
-	if sender.enableGzip {
-		var buf bytes.Buffer
-		gzipWriter := gzip.NewWriter(&buf)
-		if _, err := gzipWriter.Write(body); err != nil {
-			return nil, fmt.Errorf("failed to compress request body: %w", err)
-		}
-		if err := gzipWriter.Close(); err != nil {
-			return nil, fmt.Errorf("failed to close gzip writer: %w", err)
-		}
-		return buf.Bytes(), nil
-	}
-
 	return body, nil
 }
 
@@ -85,17 +74,43 @@ func (sender *jsonSender) send(endpoint string, data interface{}) error {
 		return err
 	}
 
+	headers := map[string]string{}
+
+	if sender.encrypter != nil {
+		encBody, encHeaders, err := sender.encrypter.Encrypt(body)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt: %w", err)
+		}
+		body = encBody
+		for k, v := range encHeaders {
+			headers[k] = v
+		}
+	}
+
+	if sender.enableGzip {
+		var buf bytes.Buffer
+		gzipWriter := gzip.NewWriter(&buf)
+		if _, err := gzipWriter.Write(body); err != nil {
+			return fmt.Errorf("failed to compress request body: %w", err)
+		}
+		if err := gzipWriter.Close(); err != nil {
+			return fmt.Errorf("failed to close gzip writer: %w", err)
+		}
+		body = buf.Bytes()
+		headers["Content-Encoding"] = "gzip"
+		headers["Accept-Encoding"] = "gzip"
+	}
+
 	request := sender.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(body)
 
-	if sender.enableGzip {
-		request.SetHeader("Content-Encoding", "gzip").
-			SetHeader("Accept-Encoding", "gzip")
+	for k, v := range headers {
+		request.SetHeader(k, v)
 	}
 
 	if sender.signer != nil {
-		hash, err := sender.signer.Hash(body) // подписываем финальное тело
+		hash, err := sender.signer.Hash(body)
 		if err != nil {
 			return fmt.Errorf("failed to calculate hash: %w", err)
 		}
