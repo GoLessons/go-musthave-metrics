@@ -3,12 +3,13 @@ package test
 import (
 	"bytes"
 	"compress/gzip"
-	"github.com/GoLessons/go-musthave-metrics/internal/agent"
-	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"github.com/goccy/go-json"
 	"net/http"
 	"path/filepath"
 	"testing"
+
+	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/goccy/go-json"
 )
 
 var (

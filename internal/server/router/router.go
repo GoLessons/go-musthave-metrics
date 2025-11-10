@@ -2,6 +2,8 @@ package router
 
 import (
 	"database/sql"
+	"net/http"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
@@ -13,7 +15,6 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 func RouterFactory() container.Factory[*chi.Mux] {
