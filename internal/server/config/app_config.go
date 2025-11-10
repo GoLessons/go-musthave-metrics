@@ -294,4 +294,9 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 			cfg.PprofHTTPAddr = strVal
 		}
 	}
+	if val, ok := (*args)["CryptoKey"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.CryptoKey = strVal
+		}
+	}
 }

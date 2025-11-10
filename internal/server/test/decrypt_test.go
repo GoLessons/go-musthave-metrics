@@ -3,15 +3,17 @@ package test
 import (
 	"bytes"
 	"compress/gzip"
-	"net/http"
-	"testing"
-
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
+	"github.com/GoLessons/go-musthave-metrics/internal/model"
+	"github.com/goccy/go-json"
+	"net/http"
+	"path/filepath"
+	"testing"
 )
 
-const (
-	privateKeyPath = "/home/sufir/Ya.less/go-musthave-metrics/var/keys/private.key"
-	certPath       = "/home/sufir/Ya.less/go-musthave-metrics/var/keys/cert.pem"
+var (
+	privateKeyPath = filepath.Join("..", "..", "..", "var", "keys", "private.key")
+	certPath       = filepath.Join("..", "..", "..", "var", "keys", "cert.pem")
 )
 
 func encryptBody(t *testing.T, data []byte) ([]byte, map[string]string) {
@@ -61,6 +63,7 @@ func TestUpdateEncrypted_NoGzip_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post update: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected status: %d", resp.StatusCode)
 	}
@@ -69,6 +72,7 @@ func TestUpdateEncrypted_NoGzip_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get value: %v", err)
 	}
+	defer getResp.Body.Close()
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected get status: %d", getResp.StatusCode)
 	}
@@ -105,6 +109,7 @@ func TestUpdateEncrypted_Gzip_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post update: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected status: %d", resp.StatusCode)
 	}
@@ -113,6 +118,7 @@ func TestUpdateEncrypted_Gzip_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get value: %v", err)
 	}
+	defer getResp.Body.Close()
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected get status: %d", getResp.StatusCode)
 	}
@@ -145,6 +151,7 @@ func TestUpdateEncrypted_InvalidContainer_400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post update: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400, got: %d", resp.StatusCode)
 	}
@@ -171,6 +178,7 @@ func TestUpdateEncrypted_MissingKey_400(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post update: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400, got: %d", resp.StatusCode)
 	}
@@ -195,6 +203,7 @@ func TestUpdatePlain_NoEncryption_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("post update: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected status: %d", resp.StatusCode)
 	}
@@ -203,6 +212,7 @@ func TestUpdatePlain_NoEncryption_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get value: %v", err)
 	}
+	defer getResp.Body.Close()
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected get status: %d", getResp.StatusCode)
 	}
@@ -226,47 +236,61 @@ func TestUpdatesEncrypted_NoGzip_Success(t *testing.T) {
 	}
 	defer tester.Shutdown()
 
-	raw := []byte(`[{"id":"bg","type":"gauge","value":1.1},{"id":"bc","type":"counter","delta":3}]`)
+	var counterDelta int64 = 3
+	gaugeValue := 1.1
+	metrics := []model.Metrics{
+		{ID: "bg", MType: model.Gauge, Value: &gaugeValue},
+		{ID: "bc", MType: model.Counter, Delta: &counterDelta},
+	}
+	raw, err := json.Marshal(metrics)
+	if err != nil {
+		t.Fatalf("marshal metrics: %v", err)
+	}
+
 	body, encHeaders := encryptBody(t, raw)
 	headers := map[string]string{
 		"Content-Type": "application/json",
 		"X-Encrypted":  encHeaders["X-Encrypted"],
 	}
+
 	resp, err := tester.DoRequest(http.MethodPost, "/updates", body, headers)
 	if err != nil {
 		t.Fatalf("post updates: %v", err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected status: %d", resp.StatusCode)
 	}
 
-	getResp, err := tester.Get("/value/gauge/bg")
+	getGaugeResp, err := tester.Get("/value/gauge/bg")
 	if err != nil {
-		t.Fatalf("get value: %v", err)
+		t.Fatalf("get gauge: %v", err)
 	}
-	if getResp.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected get status: %d", getResp.StatusCode)
+	defer getGaugeResp.Body.Close()
+	if getGaugeResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected gauge get status: %d", getGaugeResp.StatusCode)
 	}
-	val, err := tester.ReadGzip(getResp)
+	gaugeVal, err := tester.ReadGzip(getGaugeResp)
 	if err != nil {
-		t.Fatalf("read body: %v", err)
+		t.Fatalf("read gauge body: %v", err)
 	}
-	if string(val) != "1.1" {
-		t.Fatalf("unexpected value: %s", string(val))
+	if string(gaugeVal) != "1.1" {
+		t.Fatalf("unexpected gauge value: %s", string(gaugeVal))
 	}
 
-	getResp2, err := tester.Get("/value/counter/bc")
+	getCounterResp, err := tester.Get("/value/counter/bc")
 	if err != nil {
-		t.Fatalf("get value counter: %v", err)
+		t.Fatalf("get counter: %v", err)
 	}
-	if getResp2.StatusCode != http.StatusOK {
-		t.Fatalf("unexpected get status: %d", getResp2.StatusCode)
+	defer getCounterResp.Body.Close()
+	if getCounterResp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected counter get status: %d", getCounterResp.StatusCode)
 	}
-	val2, err := tester.ReadGzip(getResp2)
+	counterVal, err := tester.ReadGzip(getCounterResp)
 	if err != nil {
-		t.Fatalf("read body: %v", err)
+		t.Fatalf("read counter body: %v", err)
 	}
-	if string(val2) != "3" {
-		t.Fatalf("unexpected counter value: %s", string(val2))
+	if string(counterVal) != "3" {
+		t.Fatalf("unexpected counter value: %s", string(counterVal))
 	}
 }

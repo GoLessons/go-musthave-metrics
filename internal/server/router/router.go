@@ -2,8 +2,6 @@ package router
 
 import (
 	"database/sql"
-	"net/http"
-
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/server/audit"
@@ -15,6 +13,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/pkg/container"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+	"net/http"
 )
 
 func RouterFactory() container.Factory[*chi.Mux] {
@@ -80,6 +79,8 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				return nil, err
 			}
 			decryptMiddleware = middleware.NewDecryptMiddleware(decrypter, logger)
+		} else {
+			decryptMiddleware = middleware.NewDecryptMiddleware(nil, logger)
 		}
 
 		r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
@@ -88,21 +89,17 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
 				}
-
 				r.Post("/", metricControllerPlain.Update)
 			},
 		)
 
 		r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
 			r.Use(middleware.GzipMiddleware)
-			if decryptMiddleware != nil {
-				r.Use(decryptMiddleware.DecryptBody)
-			}
+			r.Use(decryptMiddleware.DecryptBody)
 			r.Use(middleware.MetricCtxFromPath)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
 			}
-
 			r.Get("/", metricControllerPlain.Get)
 		})
 
@@ -112,9 +109,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				r.Use(signatureMiddleware.VerifySignature)
 			}
 			r.Use(middleware.GzipMiddleware)
-			if decryptMiddleware != nil {
-				r.Use(decryptMiddleware.DecryptBody)
-			}
+			r.Use(decryptMiddleware.DecryptBody)
 			r.Use(middleware.MetricCtxFromBody)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
@@ -132,9 +127,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 				r.Use(signatureMiddleware.VerifySignature)
 			}
 			r.Use(middleware.GzipMiddleware)
-			if decryptMiddleware != nil {
-				r.Use(decryptMiddleware.DecryptBody)
-			}
+			r.Use(decryptMiddleware.DecryptBody)
 			r.Use(middleware.MetricsListCtxFromBody)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.AddSignature)
@@ -152,9 +145,7 @@ func RouterFactory() container.Factory[*chi.Mux] {
 					r.Use(signatureMiddleware.VerifySignature)
 				}
 				r.Use(middleware.GzipMiddleware)
-				if decryptMiddleware != nil {
-					r.Use(decryptMiddleware.DecryptBody)
-				}
+				r.Use(decryptMiddleware.DecryptBody)
 				r.Use(middleware.MetricCtxFromBody)
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
