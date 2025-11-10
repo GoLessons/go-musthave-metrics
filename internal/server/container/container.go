@@ -2,8 +2,6 @@ package container
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
 
 	"github.com/GoLessons/go-musthave-metrics/internal/common/logger"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
@@ -17,17 +15,15 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitContainer() container.Container {
+func InitContainer() (container.Container, error) {
 	cfg, err := config.LoadConfig(nil)
 	if err != nil {
-		fmt.Printf("DI Error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	serverLogger, err := logger.NewLogger(zap.NewProductionConfig())
 	if err != nil {
-		fmt.Printf("DI Error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	storageCounter := storage.NewMemStorage[model.Counter]()
@@ -45,14 +41,12 @@ func InitContainer() container.Container {
 	if cfg.DatabaseDsn != "" {
 		sqlDB, err := sql.Open("pgx", cfg.DatabaseDsn)
 		if err != nil {
-			fmt.Printf("DI Error: %v\n", err)
-			os.Exit(1)
+			return nil, err
 		}
 		sqlDB.SetMaxOpenConns(20)
 		sqlDB.SetMaxIdleConns(10)
 		if err := sqlDB.Ping(); err != nil {
-			fmt.Printf("DI Error: %v\n", err)
-			os.Exit(1)
+			return nil, err
 		}
 		services["db"] = sqlDB
 	}
@@ -63,5 +57,5 @@ func InitContainer() container.Container {
 	container.SimpleRegisterFactory(&c, "dumper", config2.MetricDumperFactory())
 	container.SimpleRegisterFactory(&c, "restorer", config2.MetricRestorerFactory())
 
-	return c
+	return c, nil
 }

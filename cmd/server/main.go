@@ -41,7 +41,11 @@ func preWarmDecoders() {
 }
 
 func main() {
-	c := container2.InitContainer()
+	c, err := container2.InitContainer()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 	mainCtx := context.Background()
 
 	serverLogger, err := container.GetService[zap.Logger](c, "logger")
@@ -88,7 +92,10 @@ func main() {
 			}
 		}(db)
 
-		tryMigrateDB(cfg, db, serverLogger)
+		if err := tryMigrateDB(cfg, db, serverLogger); err != nil {
+			fmt.Printf("Magrations error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	storageCounter, err := container.GetService[storage.MemStorage[model.Counter]](c, "counterStorage")
@@ -231,15 +238,14 @@ func storeMetrics(serverLogger *zap.Logger, metricService *service.MetricService
 	serverLogger.Info("Состояние сервера сохранено")
 }
 
-func tryMigrateDB(cfg *config2.Config, db *sql.DB, serverLogger *zap.Logger) {
+func tryMigrateDB(cfg *config2.Config, db *sql.DB, serverLogger *zap.Logger) error {
 	if cfg.DatabaseDsn != "" {
 		migrator := database.NewMigrator(db, serverLogger)
-		err := migrator.Up()
-		if err != nil {
-			fmt.Printf("Magrations error: %v\n", err)
-			os.Exit(1)
+		if err := migrator.Up(); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func iterateFunc(ctx context.Context, interval uint64, callable func()) {

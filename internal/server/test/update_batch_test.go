@@ -12,7 +12,8 @@ import (
 )
 
 func TestUpdateBatchJSON(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta1 int64 = 42
@@ -85,7 +86,8 @@ func TestUpdateBatchJSON(t *testing.T) {
 }
 
 func TestUpdateBatchJSONInvalidMetrics(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta int64 = 42
@@ -187,7 +189,8 @@ func TestUpdateBatchJSONInvalidMetrics(t *testing.T) {
 }
 
 func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	var counterDelta1 int64 = 42
@@ -247,7 +250,8 @@ func TestUpdateBatchJSONMultipleUpdates(t *testing.T) {
 }
 
 func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	gaugeValue1 := 42.123
@@ -306,7 +310,8 @@ func TestUpdateBatchJSONGaugeOverwrite(t *testing.T) {
 }
 
 func TestUpdateBatchJSONMethodNotAllowed(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}

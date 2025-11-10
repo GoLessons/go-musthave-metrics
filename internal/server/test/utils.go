@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -32,11 +31,10 @@ type tester struct {
 	testStorageGauge   *storage.MemStorage[model.Gauge]
 }
 
-func NewTester(t *testing.T, options *map[string]any) *tester {
+func NewTester(t *testing.T, options *map[string]any) (*tester, error) {
 	cfg, err := serverConfig.LoadConfig(options)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 	var testStorageCounter = storage.NewMemStorage[model.Counter]()
 	var testStorageGauge = storage.NewMemStorage[model.Gauge]()
@@ -55,8 +53,7 @@ func NewTester(t *testing.T, options *map[string]any) *tester {
 
 	r, err := container.GetService[chi.Mux](c, "router")
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	return &tester{
@@ -65,7 +62,7 @@ func NewTester(t *testing.T, options *map[string]any) *tester {
 		httpClient:         &http.Client{},
 		testStorageCounter: testStorageCounter,
 		testStorageGauge:   testStorageGauge,
-	}
+	}, nil
 }
 
 func (tester *tester) HaveCouner(metric model.Counter) error {

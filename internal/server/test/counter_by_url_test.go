@@ -9,7 +9,8 @@ import (
 )
 
 func TestCounter(t *testing.T) {
-	I := NewTester(t, nil)
+	I, err := NewTester(t, nil)
+	require.NoError(t, err)
 	defer I.Shutdown()
 
 	for _, test := range providerTestCounter() {
