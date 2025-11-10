@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/GoLessons/go-musthave-metrics/internal/common/buildinfo"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	apiModel "github.com/GoLessons/go-musthave-metrics/internal/model"
 	config2 "github.com/GoLessons/go-musthave-metrics/internal/server/config"
@@ -30,6 +31,10 @@ import (
 	"go.uber.org/zap"
 )
 
+var buildVersion string
+var buildDate string
+var buildCommit string
+
 func preWarmDecoders() {
 	// Прогреваем декодер для одиночного объекта метрики
 	var m apiModel.Metrics
@@ -41,6 +46,7 @@ func preWarmDecoders() {
 }
 
 func main() {
+	buildinfo.PrintBuildInfo(buildVersion, buildDate, buildCommit)
 	c, err := container2.InitContainer()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
