@@ -25,3 +25,21 @@ git fetch template && git checkout template/main .github
 При мёрже ветки с инкрементом в основную ветку `main` будут запускаться все автотесты.
 
 Подробнее про локальный и автоматический запуск читайте в [README автотестов](https://github.com/Yandex-Practicum/go-autotests).
+
+## Конфигурация из файла
+
+- Путь к JSON-конфигу можно задать через флаг `-config` (коротко `-c`) или переменную окружения `CONFIG`.
+- Формат — обычный JSON без комментариев. Пример: `server.json` в корне репозитория.
+- Приоритеты: `defaults < file < env < flags`.
+- Особенности:
+  - `store_interval` в файле указывается строкой длительности (`"300s"`, `"2m"`), переменная окружения и флаги используют секунды.
+  - `store_file` соответствует существующей опции `FILE_STORAGE_PATH`/`-file-storage-path`.
+
+Запуск с конфигом:
+```bash
+go run ./cmd/server -config ./server.json
+```
+или:
+```bash
+CONFIG=./server.json go run ./cmd/server
+```

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	fileconfig "github.com/GoLessons/go-musthave-metrics/pkg/file-config"
 )
 
 type Config struct {
@@ -64,21 +66,46 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		envAddress = "localhost:8080"
 	}
 
-	address := flags.String("address", envAddress, "HTTP server address")
-	restore := flags.Bool("restore", false, "Restore metrics before starting")
-	storeInterval := flags.Uint64("store-interval", 300, "Store interval in seconds")
-	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
-	databaseDsn := flags.String("database-dsn", "", "Database DSN")
-	key := flags.String("key", "", "Key for signature verification")
-	cryptoKey := flags.String("crypto-key", "", "Path to RSA private key for request decryption")
-	auditFile := flags.String("audit-file", "", "Audit log file path")
-	auditURL := flags.String("audit-url", "", "Audit log URL")
+	cfgDefaults := &Config{
+		Address:     envAddress,
+		DatabaseDsn: "",
+		Key:         "",
+		CryptoKey:   "",
+		AuditFile:   "",
+		AuditURL:    "",
+		DumpConfig: DumpConfig{
+			Restore:         false,
+			StoreInterval:   300,
+			FileStoragePath: "metric-storage.json",
+		},
+		PprofOnShutdown: false,
+		PprofDir:        "profiles",
+		PprofFilename:   "base.pprof",
+		PprofHTTP:       false,
+		PprofHTTPAddr:   ":6060",
+	}
 
-	pprofOnShutdown := flags.Bool("pprof-on-shutdown", false, "Enable heap profile write on shutdown")
-	pprofDir := flags.String("pprof-dir", "profiles", "Directory to store pprof files")
-	pprofFilename := flags.String("pprof-filename", "base.pprof", "Heap profile filename")
-	pprofHTTP := flags.Bool("pprof-http", false, "Expose net/http/pprof endpoints")
-	pprofHTTPAddr := flags.String("pprof-http-addr", ":6060", "pprof HTTP listen address")
+	if configPath := getFileConfigPath(); configPath != "" {
+		if err := fileconfig.LoadInto(configPath, cfgDefaults); err != nil {
+			return nil, wrapError("ошибка чтения файла конфигурации", err)
+		}
+	}
+
+	address := flags.String("address", cfgDefaults.Address, "HTTP server address")
+	restore := flags.Bool("restore", cfgDefaults.DumpConfig.Restore, "Restore metrics before starting")
+	storeInterval := flags.Uint64("store-interval", cfgDefaults.DumpConfig.StoreInterval, "Store interval in seconds")
+	fileStoragePath := flags.String("file-storage-path", cfgDefaults.DumpConfig.FileStoragePath, "File storage path")
+	databaseDsn := flags.String("database-dsn", cfgDefaults.DatabaseDsn, "Database DSN")
+	key := flags.String("key", cfgDefaults.Key, "Key for signature verification")
+	cryptoKey := flags.String("crypto-key", cfgDefaults.CryptoKey, "Path to RSA private key for request decryption")
+	auditFile := flags.String("audit-file", cfgDefaults.AuditFile, "Audit log file path")
+	auditURL := flags.String("audit-url", cfgDefaults.AuditURL, "Audit log URL")
+
+	pprofOnShutdown := flags.Bool("pprof-on-shutdown", cfgDefaults.PprofOnShutdown, "Enable heap profile write on shutdown")
+	pprofDir := flags.String("pprof-dir", cfgDefaults.PprofDir, "Directory to store pprof files")
+	pprofFilename := flags.String("pprof-filename", cfgDefaults.PprofFilename, "Heap profile filename")
+	pprofHTTP := flags.Bool("pprof-http", cfgDefaults.PprofHTTP, "Expose net/http/pprof endpoints")
+	pprofHTTPAddr := flags.String("pprof-http-addr", cfgDefaults.PprofHTTPAddr, "pprof HTTP listen address")
 
 	flags.StringVar(address, "a", *address, "HTTP server address (short)")
 	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
@@ -299,4 +326,28 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 			cfg.CryptoKey = strVal
 		}
 	}
+}
+
+func getFileConfigPath() string {
+	if v := os.Getenv("CONFIG"); v != "" {
+		return v
+	}
+
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-c=") {
+			return strings.TrimPrefix(a, "-c=")
+		}
+		if strings.HasPrefix(a, "-config=") {
+			return strings.TrimPrefix(a, "-config=")
+		}
+		if a == "-c" || a == "-config" {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+	}
+
+	return ""
 }
