@@ -19,10 +19,40 @@ func writeJSON(t *testing.T, v any) string {
 	return path
 }
 
+func prepareConfigEnv(t *testing.T, configPath string, args ...string) {
+	t.Helper()
+	envs := []string{
+		"ADDRESS",
+		"CONFIG",
+		"DATABASE_DSN",
+		"RESTORE",
+		"STORE_INTERVAL",
+		"FILE_STORAGE_PATH",
+		"KEY",
+		"CRYPTO_KEY",
+		"AUDIT_FILE",
+		"AUDIT_URL",
+		"PPROF_ON_SHUTDOWN",
+		"PPROF_DIR",
+		"PPROF_FILENAME",
+		"PPROF_HTTP",
+		"PPROF_HTTP_ADDR",
+	}
+	for _, e := range envs {
+		t.Setenv(e, "")
+	}
+	if configPath != "" {
+		t.Setenv("CONFIG", configPath)
+	}
+	if len(args) == 0 {
+		os.Args = []string{"prog"}
+	} else {
+		os.Args = append([]string{"prog"}, args...)
+	}
+}
+
 func TestLoadConfig_Defaults(t *testing.T) {
-	t.Setenv("ADDRESS", "")
-	t.Setenv("CONFIG", "")
-	os.Args = []string{"prog"}
+	prepareConfigEnv(t, "")
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)
@@ -46,9 +76,7 @@ func TestLoadConfig_FileOnly(t *testing.T) {
 	}
 	path := writeJSON(t, v)
 
-	t.Setenv("ADDRESS", "")
-	t.Setenv("CONFIG", path)
-	os.Args = []string{"prog"}
+	prepareConfigEnv(t, path)
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)
@@ -72,15 +100,12 @@ func TestLoadConfig_FlagsOverrideFile(t *testing.T) {
 	}
 	path := writeJSON(t, v)
 
-	t.Setenv("ADDRESS", "")
-	t.Setenv("CONFIG", path)
-	os.Args = []string{
-		"prog",
-		"-address", "0.0.0.0:8081",
-		"-restore", "false",
-		"-store-interval", "777",
-		"-file-storage-path", "flags.json",
-	}
+	prepareConfigEnv(t, path,
+		"-address=0.0.0.0:8081",
+		"-restore=false",
+		"-store-interval=777",
+		"-file-storage-path=flags.json",
+	)
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)
@@ -102,19 +127,17 @@ func TestLoadConfig_EnvOverridesAll(t *testing.T) {
 	}
 	path := writeJSON(t, v)
 
-	t.Setenv("CONFIG", path)
+	prepareConfigEnv(t, path,
+		"-address=flags:8080",
+		"-restore=false",
+		"-store-interval=777",
+		"-file-storage-path=flags.json",
+	)
+
 	t.Setenv("ADDRESS", "env:9090")
 	t.Setenv("RESTORE", "true")
 	t.Setenv("STORE_INTERVAL", "5")
 	t.Setenv("FILE_STORAGE_PATH", "env.json")
-
-	os.Args = []string{
-		"prog",
-		"-address", "flags:8080",
-		"-restore", "false",
-		"-store-interval", "777",
-		"-file-storage-path", "flags.json",
-	}
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)
@@ -135,9 +158,7 @@ func TestLoadConfig_ConfigPathEnvPreferredOverFlag(t *testing.T) {
 	pathEnv := writeJSON(t, vEnv)
 	pathFlag := writeJSON(t, vFlag)
 
-	t.Setenv("ADDRESS", "")
-	t.Setenv("CONFIG", pathEnv)
-	os.Args = []string{"prog", "-config", pathFlag}
+	prepareConfigEnv(t, pathEnv, "-config", pathFlag)
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)

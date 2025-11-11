@@ -142,11 +142,12 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		PprofHTTPAddr:   *pprofHTTPAddr,
 	}
 
-	// ENV overrides
+	if v := os.Getenv("ADDRESS"); v != "" {
+		cfg.Address = v
+	}
 	if databaseDsn := os.Getenv("DATABASE_DSN"); databaseDsn != "" {
 		cfg.DatabaseDsn = databaseDsn
 	}
-
 	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 		restoreVal, err := strconv.ParseBool(envRestore)
 		if err != nil {
@@ -155,7 +156,6 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			cfg.DumpConfig.Restore = restoreVal
 		}
 	}
-
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
 		interval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
@@ -164,26 +164,21 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			cfg.DumpConfig.StoreInterval = interval
 		}
 	}
-
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 		cfg.DumpConfig.FileStoragePath = envFileStoragePath
 	}
-
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		cfg.Key = envKey
 	}
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
 		cfg.CryptoKey = envCryptoKey
 	}
-
 	if envAuditFile := os.Getenv("AUDIT_FILE"); envAuditFile != "" {
 		cfg.AuditFile = envAuditFile
 	}
-
 	if envAuditURL := os.Getenv("AUDIT_URL"); envAuditURL != "" {
 		cfg.AuditURL = envAuditURL
 	}
-
 	if v := os.Getenv("PPROF_ON_SHUTDOWN"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -226,19 +221,23 @@ func filterArgs(flags *flag.FlagSet, args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if len(arg) > 1 && arg[0] == '-' {
-			splitArg := strings.SplitN(arg, "=", 2)
-			flagName := splitArg[0]
+			eq := strings.Index(arg, "=")
+			flagName := arg
+			if eq != -1 {
+				flagName = arg[:eq]
+			}
 
 			if _, valid := validFlags[flagName]; valid {
+				if eq != -1 {
+					filteredArgs = append(filteredArgs, arg)
+					continue
+				}
+
 				filteredArgs = append(filteredArgs, flagName)
 
-				if len(splitArg) > 1 {
-					// Добавляем значение если оно присутствует
-					filteredArgs = append(filteredArgs, splitArg[1])
-				} else if i+1 < len(args) && args[i+1][0] != '-' {
-					// Если значение передается отдельным аргументом, добавляем его
+				if i+1 < len(args) && args[i+1][0] != '-' {
 					filteredArgs = append(filteredArgs, args[i+1])
-					i++ // Пропустить значение
+					i++
 				}
 			}
 		}
