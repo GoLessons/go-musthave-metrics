@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/goccy/go-json"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/goccy/go-json"
+	"github.com/stretchr/testify/require"
 )
 
 func writeJSON(t *testing.T, v any) string {
