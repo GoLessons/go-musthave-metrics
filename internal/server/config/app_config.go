@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	fileconfig "github.com/GoLessons/go-musthave-metrics/pkg/file-config"
 )
 
 type Config struct {
@@ -13,6 +15,7 @@ type Config struct {
 	DatabaseDsn     string `env:"DATABASE_DSN"`
 	DumpConfig      DumpConfig
 	Key             string `env:"KEY"`
+	CryptoKey       string `env:"CRYPTO_KEY"`
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
 	PprofOnShutdown bool   `env:"PPROF_ON_SHUTDOWN"`
@@ -63,20 +66,46 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		envAddress = "localhost:8080"
 	}
 
-	address := flags.String("address", envAddress, "HTTP server address")
-	restore := flags.Bool("restore", false, "Restore metrics before starting")
-	storeInterval := flags.Uint64("store-interval", 300, "Store interval in seconds")
-	fileStoragePath := flags.String("file-storage-path", "metric-storage.json", "File storage path")
-	databaseDsn := flags.String("database-dsn", "", "Database DSN")
-	key := flags.String("key", "", "Key for signature verification")
-	auditFile := flags.String("audit-file", "", "Audit log file path")
-	auditURL := flags.String("audit-url", "", "Audit log URL")
+	cfgDefaults := &Config{
+		Address:     envAddress,
+		DatabaseDsn: "",
+		Key:         "",
+		CryptoKey:   "",
+		AuditFile:   "",
+		AuditURL:    "",
+		DumpConfig: DumpConfig{
+			Restore:         false,
+			StoreInterval:   300,
+			FileStoragePath: "metric-storage.json",
+		},
+		PprofOnShutdown: false,
+		PprofDir:        "profiles",
+		PprofFilename:   "base.pprof",
+		PprofHTTP:       false,
+		PprofHTTPAddr:   ":6060",
+	}
 
-	pprofOnShutdown := flags.Bool("pprof-on-shutdown", false, "Enable heap profile write on shutdown")
-	pprofDir := flags.String("pprof-dir", "profiles", "Directory to store pprof files")
-	pprofFilename := flags.String("pprof-filename", "base.pprof", "Heap profile filename")
-	pprofHTTP := flags.Bool("pprof-http", false, "Expose net/http/pprof endpoints")
-	pprofHTTPAddr := flags.String("pprof-http-addr", ":6060", "pprof HTTP listen address")
+	if configPath := getFileConfigPath(); configPath != "" {
+		if err := fileconfig.LoadInto(configPath, cfgDefaults); err != nil {
+			return nil, wrapError("ошибка чтения файла конфигурации", err)
+		}
+	}
+
+	address := flags.String("address", cfgDefaults.Address, "HTTP server address")
+	restore := flags.Bool("restore", cfgDefaults.DumpConfig.Restore, "Restore metrics before starting")
+	storeInterval := flags.Uint64("store-interval", cfgDefaults.DumpConfig.StoreInterval, "Store interval in seconds")
+	fileStoragePath := flags.String("file-storage-path", cfgDefaults.DumpConfig.FileStoragePath, "File storage path")
+	databaseDsn := flags.String("database-dsn", cfgDefaults.DatabaseDsn, "Database DSN")
+	key := flags.String("key", cfgDefaults.Key, "Key for signature verification")
+	cryptoKey := flags.String("crypto-key", cfgDefaults.CryptoKey, "Path to RSA private key for request decryption")
+	auditFile := flags.String("audit-file", cfgDefaults.AuditFile, "Audit log file path")
+	auditURL := flags.String("audit-url", cfgDefaults.AuditURL, "Audit log URL")
+
+	pprofOnShutdown := flags.Bool("pprof-on-shutdown", cfgDefaults.PprofOnShutdown, "Enable heap profile write on shutdown")
+	pprofDir := flags.String("pprof-dir", cfgDefaults.PprofDir, "Directory to store pprof files")
+	pprofFilename := flags.String("pprof-filename", cfgDefaults.PprofFilename, "Heap profile filename")
+	pprofHTTP := flags.Bool("pprof-http", cfgDefaults.PprofHTTP, "Expose net/http/pprof endpoints")
+	pprofHTTPAddr := flags.String("pprof-http-addr", cfgDefaults.PprofHTTPAddr, "pprof HTTP listen address")
 
 	flags.StringVar(address, "a", *address, "HTTP server address (short)")
 	flags.BoolVar(restore, "r", *restore, "Restore metrics before starting (short)")
@@ -98,6 +127,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		Address:     *address,
 		DatabaseDsn: *databaseDsn,
 		Key:         *key,
+		CryptoKey:   *cryptoKey,
 		AuditFile:   *auditFile,
 		AuditURL:    *auditURL,
 		DumpConfig: DumpConfig{
@@ -112,11 +142,12 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		PprofHTTPAddr:   *pprofHTTPAddr,
 	}
 
-	// ENV overrides
+	if v := os.Getenv("ADDRESS"); v != "" {
+		cfg.Address = v
+	}
 	if databaseDsn := os.Getenv("DATABASE_DSN"); databaseDsn != "" {
 		cfg.DatabaseDsn = databaseDsn
 	}
-
 	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 		restoreVal, err := strconv.ParseBool(envRestore)
 		if err != nil {
@@ -125,7 +156,6 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			cfg.DumpConfig.Restore = restoreVal
 		}
 	}
-
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
 		interval, err := strconv.ParseUint(envStoreInterval, 10, 64)
 		if err != nil {
@@ -134,23 +164,21 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 			cfg.DumpConfig.StoreInterval = interval
 		}
 	}
-
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 		cfg.DumpConfig.FileStoragePath = envFileStoragePath
 	}
-
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		cfg.Key = envKey
 	}
-
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		cfg.CryptoKey = envCryptoKey
+	}
 	if envAuditFile := os.Getenv("AUDIT_FILE"); envAuditFile != "" {
 		cfg.AuditFile = envAuditFile
 	}
-
 	if envAuditURL := os.Getenv("AUDIT_URL"); envAuditURL != "" {
 		cfg.AuditURL = envAuditURL
 	}
-
 	if v := os.Getenv("PPROF_ON_SHUTDOWN"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -193,19 +221,23 @@ func filterArgs(flags *flag.FlagSet, args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if len(arg) > 1 && arg[0] == '-' {
-			splitArg := strings.SplitN(arg, "=", 2)
-			flagName := splitArg[0]
+			eq := strings.Index(arg, "=")
+			flagName := arg
+			if eq != -1 {
+				flagName = arg[:eq]
+			}
 
 			if _, valid := validFlags[flagName]; valid {
+				if eq != -1 {
+					filteredArgs = append(filteredArgs, arg)
+					continue
+				}
+
 				filteredArgs = append(filteredArgs, flagName)
 
-				if len(splitArg) > 1 {
-					// Добавляем значение если оно присутствует
-					filteredArgs = append(filteredArgs, splitArg[1])
-				} else if i+1 < len(args) && args[i+1][0] != '-' {
-					// Если значение передается отдельным аргументом, добавляем его
+				if i+1 < len(args) && args[i+1][0] != '-' {
 					filteredArgs = append(filteredArgs, args[i+1])
-					i++ // Пропустить значение
+					i++
 				}
 			}
 		}
@@ -288,4 +320,33 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 			cfg.PprofHTTPAddr = strVal
 		}
 	}
+	if val, ok := (*args)["CryptoKey"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.CryptoKey = strVal
+		}
+	}
+}
+
+func getFileConfigPath() string {
+	if v := os.Getenv("CONFIG"); v != "" {
+		return v
+	}
+
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-c=") {
+			return strings.TrimPrefix(a, "-c=")
+		}
+		if strings.HasPrefix(a, "-config=") {
+			return strings.TrimPrefix(a, "-config=")
+		}
+		if a == "-c" || a == "-config" {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+	}
+
+	return ""
 }
