@@ -79,7 +79,7 @@ func run(cfg *Config) error {
 	defer cancel()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		<-sigChan
