@@ -8,6 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"strconv"
+	"strings"
+
 	"github.com/GoLessons/go-musthave-metrics/internal/agent"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/collector"
 	"github.com/GoLessons/go-musthave-metrics/internal/agent/reader"
@@ -15,7 +18,7 @@ import (
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
 	"github.com/GoLessons/go-musthave-metrics/internal/common/storage"
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
-	"github.com/caarlos0/env"
+	fileconfig "github.com/GoLessons/go-musthave-metrics/pkg/file-config"
 	"github.com/spf13/cobra"
 )
 
@@ -46,6 +49,10 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		return overrideWithEnv(cfg)
 	}
 
 	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -119,24 +126,120 @@ func collectAndSendMetrics(
 }
 
 func loadConfig(cmd *cobra.Command) (*Config, error) {
-	cfg := &Config{}
-
-	err := env.Parse(cfg)
-	if err != nil {
-		return nil, err
+	envAddress := os.Getenv("ADDRESS")
+	if envAddress == "" {
+		envAddress = "localhost:8080"
 	}
 
-	cmd.Flags().StringVarP(&cfg.Address, "address", "a", cfg.Address, "HTTP server address")
-	cmd.Flags().IntVarP(&cfg.ReportInterval, "report", "r", cfg.ReportInterval, "Report interval in seconds")
-	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", cfg.PollInterval, "Poll interval in seconds")
-	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", cfg.Plain, "Use plain text format instead of JSON")
-	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", cfg.EnableGzip, "Disable gzip compression for JSON requests")
-	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", cfg.Batch, "Send metrics in batch mode")
-	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", cfg.SecretKey, "SecretKey for signing metrics")
-	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", cfg.RateLimit, "Rate limit for sending metrics")
-	cmd.Flags().StringVarP(&cfg.CryptoKey, "crypto-key", "", cfg.CryptoKey, "Public key or certificate path for payload encryption")
+	defaults := &Config{
+		Address:        envAddress,
+		ReportInterval: 10,
+		PollInterval:   2,
+		Plain:          false,
+		EnableGzip:     false,
+		Batch:          false,
+		SecretKey:      "",
+		RateLimit:      0,
+		CryptoKey:      "",
+	}
+
+	if configPath := getFileConfigPath(); configPath != "" {
+		if err := fileconfig.LoadInto(configPath, defaults); err != nil {
+			return nil, fmt.Errorf("ошибка чтения файла конфигурации: %w", err)
+		}
+	}
+
+	cfg := &Config{}
+
+	cmd.Flags().StringP("config", "c", "", "Path to agent config JSON")
+	cmd.Flags().StringVarP(&cfg.Address, "address", "a", defaults.Address, "HTTP server address")
+	cmd.Flags().IntVarP(&cfg.ReportInterval, "report", "r", defaults.ReportInterval, "Report interval in seconds")
+	cmd.Flags().IntVarP(&cfg.PollInterval, "poll", "p", defaults.PollInterval, "Poll interval in seconds")
+	cmd.Flags().BoolVarP(&cfg.Plain, "plain", "", defaults.Plain, "Use plain text format instead of JSON")
+	cmd.Flags().BoolVarP(&cfg.EnableGzip, "gzip", "", defaults.EnableGzip, "Disable gzip compression for JSON requests")
+	cmd.Flags().BoolVarP(&cfg.Batch, "batch", "b", defaults.Batch, "Send metrics in batch mode")
+	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", defaults.SecretKey, "SecretKey for signing metrics")
+	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", defaults.RateLimit, "Rate limit for sending metrics")
+	cmd.Flags().StringVarP(&cfg.CryptoKey, "crypto-key", "", defaults.CryptoKey, "Public key or certificate path for payload encryption")
 
 	return cfg, nil
+}
+
+func getFileConfigPath() string {
+	if v := os.Getenv("CONFIG"); v != "" {
+		return v
+	}
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-c=") {
+			return strings.TrimPrefix(a, "-c=")
+		}
+		if strings.HasPrefix(a, "-config=") {
+			return strings.TrimPrefix(a, "-config=")
+		}
+		if a == "-c" || a == "-config" {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+		}
+	}
+	return ""
+}
+
+func overrideWithEnv(cfg *Config) error {
+	if v := os.Getenv("ADDRESS"); v != "" {
+		cfg.Address = v
+	}
+	if v := os.Getenv("REPORT_INTERVAL"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга REPORT_INTERVAL: %w", err)
+		}
+		cfg.ReportInterval = n
+	}
+	if v := os.Getenv("POLL_INTERVAL"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга POLL_INTERVAL: %w", err)
+		}
+		cfg.PollInterval = n
+	}
+	if v := os.Getenv("PLAIN"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга PLAIN: %w", err)
+		}
+		cfg.Plain = b
+	}
+	if v := os.Getenv("GZIP"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга GZIP: %w", err)
+		}
+		cfg.EnableGzip = b
+	}
+	if v := os.Getenv("BATCH"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга BATCH: %w", err)
+		}
+		cfg.Batch = b
+	}
+	if v := os.Getenv("KEY"); v != "" {
+		cfg.SecretKey = v
+	}
+	if v := os.Getenv("RATE_LIMIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга RATE_LIMIT: %w", err)
+		}
+		cfg.RateLimit = n
+	}
+	if v := os.Getenv("CRYPTO_KEY"); v != "" {
+		cfg.CryptoKey = v
+	}
+	return nil
 }
 
 func createSender(cfg *Config) (agent.Sender, error) {
