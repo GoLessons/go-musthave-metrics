@@ -153,12 +153,12 @@ func TestUpdateEncrypted_InvalidContainer_400(t *testing.T) {
 		t.Fatalf("post update: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got: %d", resp.StatusCode)
 	}
 }
 
-func TestUpdateEncrypted_MissingKey_500(t *testing.T) {
+func TestUpdateEncrypted_MissingKey_400(t *testing.T) {
 	opts := map[string]any{
 		"Key":       "",
 		"CryptoKey": "",
