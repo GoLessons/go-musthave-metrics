@@ -75,12 +75,16 @@ func main() {
 }
 
 func run(cfg *Config) error {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
-		<-ctx.Done()
+		<-sigChan
 		fmt.Println("Получен сигнал завершения, завершаем работу...")
+		cancel()
 	}()
 
 	metricsStorage := storage.NewMemStorage[model.Metrics]()

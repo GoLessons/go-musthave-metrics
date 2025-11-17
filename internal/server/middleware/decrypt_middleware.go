@@ -92,7 +92,7 @@ func (m *DecryptMiddleware) DecryptBody(next http.Handler) http.Handler {
 			return
 		}
 		if m.decrypter == nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 		if enc != "aes256gcm+rsa-oaep;v=1" {
