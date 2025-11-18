@@ -58,7 +58,13 @@ jobs:
 
 
       - name: Build server binary
+        env:
+          CERT_B64: ${{ secrets.CERT_B64 }}
+          PRIVATE_KEY_B64: ${{ secrets.PRIVATE_KEY_B64 }}
         run: |
+          mkdir -p var/keys
+          echo "$CERT_B64" | base64 -d > var/keys/cert.pem
+          echo "$PRIVATE_KEY_B64" | base64 -d > var/keys/private.key
           cd cmd/server
           go build -buildvcs=false -o server
 
@@ -84,7 +90,11 @@ jobs:
             -binary-path=cmd/server/server
 
       - name: Build agent binary
+        env:
+          CERT_B64: ${{ secrets.CERT_B64 }}
         run: |
+          mkdir -p var/keys
+          echo "$CERT_B64" | base64 -d > var/keys/cert.pem
           cd cmd/agent
           go build -buildvcs=false  -o agent
 
