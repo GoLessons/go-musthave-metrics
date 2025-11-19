@@ -16,6 +16,7 @@ type Config struct {
 	DumpConfig      DumpConfig
 	Key             string `env:"KEY"`
 	CryptoKey       string `env:"CRYPTO_KEY"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET"`
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
 	PprofOnShutdown bool   `env:"PPROF_ON_SHUTDOWN"`
@@ -100,6 +101,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	cryptoKey := flags.String("crypto-key", cfgDefaults.CryptoKey, "Path to RSA private key for request decryption")
 	auditFile := flags.String("audit-file", cfgDefaults.AuditFile, "Audit log file path")
 	auditURL := flags.String("audit-url", cfgDefaults.AuditURL, "Audit log URL")
+	trustedSubnet := flags.String("trusted_subnet", cfgDefaults.TrustedSubnet, "Trusted subnet CIDR")
 
 	pprofOnShutdown := flags.Bool("pprof-on-shutdown", cfgDefaults.PprofOnShutdown, "Enable heap profile write on shutdown")
 	pprofDir := flags.String("pprof-dir", cfgDefaults.PprofDir, "Directory to store pprof files")
@@ -113,6 +115,7 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	flags.StringVar(fileStoragePath, "f", *fileStoragePath, "File storage path (short)")
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
 	flags.StringVar(key, "k", *key, "Key for signature verification (short)")
+	flags.StringVar(trustedSubnet, "t", *trustedSubnet, "Trusted subnet CIDR (short)")
 
 	filteredArgs := filterArgs(flags, os.Args[1:])
 
@@ -124,12 +127,13 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Address:     *address,
-		DatabaseDsn: *databaseDsn,
-		Key:         *key,
-		CryptoKey:   *cryptoKey,
-		AuditFile:   *auditFile,
-		AuditURL:    *auditURL,
+		Address:       *address,
+		DatabaseDsn:   *databaseDsn,
+		Key:           *key,
+		CryptoKey:     *cryptoKey,
+		TrustedSubnet: *trustedSubnet,
+		AuditFile:     *auditFile,
+		AuditURL:      *auditURL,
 		DumpConfig: DumpConfig{
 			Restore:         *restore,
 			StoreInterval:   *storeInterval,
@@ -172,6 +176,9 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	}
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
 		cfg.CryptoKey = envCryptoKey
+	}
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		cfg.TrustedSubnet = envTrustedSubnet
 	}
 	if envAuditFile := os.Getenv("AUDIT_FILE"); envAuditFile != "" {
 		cfg.AuditFile = envAuditFile
@@ -280,6 +287,12 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 	if val, ok := (*args)["Key"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.Key = strVal
+		}
+	}
+
+	if val, ok := (*args)["TrustedSubnet"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.TrustedSubnet = strVal
 		}
 	}
 

@@ -52,6 +52,23 @@ func RouterFactory() container.Factory[*chi.Mux] {
 		r := chi.NewRouter()
 
 		r.Use(middleware.NewLoggingMiddleware(logger))
+
+		var trustedChecker *middleware.TrustedSubnetCheckMiddleware
+		if cfg.TrustedSubnet != "" {
+			c, err := middleware.NewTrustedSubnetChecker(cfg.TrustedSubnet, logger)
+			if err != nil {
+				return nil, err
+			}
+			trustedChecker = c
+		}
+
+		if cfg.TrustedSubnet != "" {
+			checker, err := middleware.NewTrustedSubnetChecker(cfg.TrustedSubnet, logger)
+			if err != nil {
+				return nil, err
+			}
+			r.Use(checker.AllowOnlyTrusted)
+		}
 		subject := audit.NewAuditSubject()
 		if cfg.AuditFile != "" {
 			subject.Register(audit.NewFileAuditor(cfg.AuditFile))
@@ -86,6 +103,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/update/{metricType}/{metricName:[a-zA-Z0-9_-]+}/{metricValue:(-?)[a-z0-9\\.]+}",
 			func(r chi.Router) {
+				if trustedChecker != nil {
+					r.Use(trustedChecker.AllowOnlyTrusted)
+				}
 				r.Use(middleware.MetricCtxFromPath)
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.AddSignature)
@@ -95,6 +115,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 		)
 
 		r.Route("/value/{metricType}/{metricName:[a-zA-Z0-9_-]+}", func(r chi.Router) {
+			if trustedChecker != nil {
+				r.Use(trustedChecker.AllowOnlyTrusted)
+			}
 			r.Use(middleware.GzipMiddleware)
 			r.Use(decryptMiddleware.DecryptBody)
 			r.Use(middleware.MetricCtxFromPath)
@@ -105,6 +128,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 		})
 
 		r.Route("/update", func(r chi.Router) {
+			if trustedChecker != nil {
+				r.Use(trustedChecker.AllowOnlyTrusted)
+			}
 			r.Use(middleware.ValidateRoute)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
@@ -123,6 +149,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 		})
 
 		r.Route("/updates", func(r chi.Router) {
+			if trustedChecker != nil {
+				r.Use(trustedChecker.AllowOnlyTrusted)
+			}
 			r.Use(middleware.ValidateRoute)
 			if signatureMiddleware != nil {
 				r.Use(signatureMiddleware.VerifySignature)
@@ -142,6 +171,9 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/value",
 			func(r chi.Router) {
+				if trustedChecker != nil {
+					r.Use(trustedChecker.AllowOnlyTrusted)
+				}
 				if signatureMiddleware != nil {
 					r.Use(signatureMiddleware.VerifySignature)
 				}
@@ -158,12 +190,16 @@ func RouterFactory() container.Factory[*chi.Mux] {
 
 		r.Route("/ping",
 			func(r chi.Router) {
+				r.Use(func(next http.Handler) http.Handler { return next })
 				r.Get("/", handler.NewPingHandler(db, logger).Ping)
 			},
 		)
 
 		r.Route("/",
 			func(r chi.Router) {
+				if trustedChecker != nil {
+					r.Use(trustedChecker.AllowOnlyTrusted)
+				}
 				r.Use(middleware.GzipMiddleware)
 				r.Get(
 					"/",
