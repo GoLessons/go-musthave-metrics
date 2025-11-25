@@ -32,6 +32,8 @@ type Config struct {
 	SecretKey      string `env:"KEY" envDefault:""`
 	RateLimit      int    `env:"RATE_LIMIT" envDefault:"0"`
 	CryptoKey      string `env:"CRYPTO_KEY" envDefault:""`
+	GrpcEnabled    bool   `env:"GRPC_ENABLED" envDefault:"false"`
+	GrpcAddress    string `env:"GRPC_ADDRESS" envDefault:"localhost:50051"`
 }
 
 var buildVersion string
@@ -137,8 +139,9 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 		SecretKey:      "",
 		RateLimit:      0,
 		CryptoKey:      "",
+		GrpcEnabled:    false,
+		GrpcAddress:    "localhost:50051",
 	}
-
 	if configPath := getFileConfigPath(); configPath != "" {
 		if err := fileconfig.LoadInto(configPath, defaults); err != nil {
 			return nil, fmt.Errorf("ошибка чтения файла конфигурации: %w", err)
@@ -157,6 +160,8 @@ func loadConfig(cmd *cobra.Command) (*Config, error) {
 	cmd.Flags().StringVarP(&cfg.SecretKey, "key", "k", defaults.SecretKey, "SecretKey for signing metrics")
 	cmd.Flags().IntVarP(&cfg.RateLimit, "rate-limit", "l", defaults.RateLimit, "Rate limit for sending metrics")
 	cmd.Flags().StringVarP(&cfg.CryptoKey, "crypto-key", "", defaults.CryptoKey, "Public key or certificate path for payload encryption")
+	cmd.Flags().BoolVarP(&cfg.GrpcEnabled, "grpc", "", defaults.GrpcEnabled, "Enable gRPC sending")
+	cmd.Flags().StringVarP(&cfg.GrpcAddress, "grpc-address", "", defaults.GrpcAddress, "gRPC server address")
 
 	return cfg, nil
 }
@@ -235,6 +240,16 @@ func overrideWithEnv(cfg *Config) error {
 	if v := os.Getenv("CRYPTO_KEY"); v != "" {
 		cfg.CryptoKey = v
 	}
+	if v := os.Getenv("GRPC_ENABLED"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("ошибка парсинга GRPC_ENABLED: %w", err)
+		}
+		cfg.GrpcEnabled = b
+	}
+	if v := os.Getenv("GRPC_ADDRESS"); v != "" {
+		cfg.GrpcAddress = v
+	}
 	return nil
 }
 
@@ -255,6 +270,10 @@ func createSender(cfg *Config) (agent.Sender, error) {
 			return nil, err
 		}
 		encrypter = e
+	}
+
+	if cfg.GrpcEnabled {
+		return agent.NewGRPCSender(cfg.GrpcAddress), nil
 	}
 
 	return agent.NewJSONSender(cfg.Address, cfg.EnableGzip, signer, encrypter), nil

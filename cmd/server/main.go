@@ -99,8 +99,7 @@ func main() {
 		}(db)
 
 		if err := tryMigrateDB(cfg, db, serverLogger); err != nil {
-			fmt.Printf("Magrations error: %v\n", err)
-			os.Exit(1)
+			serverLogger.Warn("Migrations error", zap.Error(err))
 		}
 	}
 

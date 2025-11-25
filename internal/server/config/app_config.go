@@ -24,6 +24,8 @@ type Config struct {
 	PprofFilename   string `env:"PPROF_FILENAME"`
 	PprofHTTP       bool   `env:"PPROF_HTTP"`
 	PprofHTTPAddr   string `env:"PPROF_HTTP_ADDR"`
+	GrpcEnabled     bool   `env:"GRPC_ENABLED"`
+	GrpcAddress     string `env:"GRPC_ADDRESS"`
 }
 
 type DumpConfig struct {
@@ -84,6 +86,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		PprofFilename:   "base.pprof",
 		PprofHTTP:       false,
 		PprofHTTPAddr:   ":6060",
+		GrpcEnabled:     false,
+		GrpcAddress:     ":50051",
 	}
 
 	if configPath := getFileConfigPath(); configPath != "" {
@@ -102,6 +106,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	auditFile := flags.String("audit-file", cfgDefaults.AuditFile, "Audit log file path")
 	auditURL := flags.String("audit-url", cfgDefaults.AuditURL, "Audit log URL")
 	trustedSubnet := flags.String("trusted_subnet", cfgDefaults.TrustedSubnet, "Trusted subnet CIDR")
+	grpcEnabled := flags.Bool("grpc-enabled", cfgDefaults.GrpcEnabled, "Enable gRPC server")
+	grpcAddress := flags.String("grpc-address", cfgDefaults.GrpcAddress, "gRPC server address")
 
 	pprofOnShutdown := flags.Bool("pprof-on-shutdown", cfgDefaults.PprofOnShutdown, "Enable heap profile write on shutdown")
 	pprofDir := flags.String("pprof-dir", cfgDefaults.PprofDir, "Directory to store pprof files")
@@ -116,6 +122,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	flags.StringVar(databaseDsn, "d", *databaseDsn, "Database DSN")
 	flags.StringVar(key, "k", *key, "Key for signature verification (short)")
 	flags.StringVar(trustedSubnet, "t", *trustedSubnet, "Trusted subnet CIDR (short)")
+	flags.BoolVar(grpcEnabled, "g", *grpcEnabled, "Enable gRPC server (short)")
+	flags.StringVar(grpcAddress, "G", *grpcAddress, "gRPC server address (short)")
 
 	filteredArgs := filterArgs(flags, os.Args[1:])
 
@@ -144,6 +152,8 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 		PprofFilename:   *pprofFilename,
 		PprofHTTP:       *pprofHTTP,
 		PprofHTTPAddr:   *pprofHTTPAddr,
+		GrpcEnabled:     *grpcEnabled,
+		GrpcAddress:     *grpcAddress,
 	}
 
 	if v := os.Getenv("ADDRESS"); v != "" {
@@ -208,6 +218,16 @@ func LoadConfig(args *map[string]any) (*Config, error) {
 	}
 	if v := os.Getenv("PPROF_HTTP_ADDR"); v != "" {
 		cfg.PprofHTTPAddr = v
+	}
+	if v := os.Getenv("GRPC_ENABLED"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return nil, wrapError("ошибка парсинга GRPC_ENABLED", err)
+		}
+		cfg.GrpcEnabled = b
+	}
+	if v := os.Getenv("GRPC_ADDRESS"); v != "" {
+		cfg.GrpcAddress = v
 	}
 
 	if args != nil {
@@ -336,6 +356,16 @@ func redefineLocal(args *map[string]any, cfg *Config) {
 	if val, ok := (*args)["CryptoKey"]; ok {
 		if strVal, ok := val.(string); ok {
 			cfg.CryptoKey = strVal
+		}
+	}
+	if val, ok := (*args)["GrpcEnabled"]; ok {
+		if boolVal, ok := val.(bool); ok {
+			cfg.GrpcEnabled = boolVal
+		}
+	}
+	if val, ok := (*args)["GrpcAddress"]; ok {
+		if strVal, ok := val.(string); ok {
+			cfg.GrpcAddress = strVal
 		}
 	}
 }
