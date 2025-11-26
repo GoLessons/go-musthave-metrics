@@ -30,6 +30,7 @@ func prepareConfigEnv(t *testing.T, configPath string, args ...string) {
 		"FILE_STORAGE_PATH",
 		"KEY",
 		"CRYPTO_KEY",
+		"TRUSTED_SUBNET",
 		"AUDIT_FILE",
 		"AUDIT_URL",
 		"PPROF_ON_SHUTDOWN",
@@ -61,12 +62,14 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	require.False(t, cfg.DumpConfig.Restore)
 	require.EqualValues(t, 300, cfg.DumpConfig.StoreInterval)
 	require.Equal(t, "metric-storage.json", cfg.DumpConfig.FileStoragePath)
+	require.Equal(t, "", cfg.TrustedSubnet)
 }
 
 func TestLoadConfig_FileOnly(t *testing.T) {
 	v := map[string]any{
-		"Address":     "127.0.0.1:9999",
-		"DatabaseDsn": "dsn_file",
+		"Address":       "127.0.0.1:9999",
+		"DatabaseDsn":   "dsn_file",
+		"TrustedSubnet": "127.0.0.0/8",
 		"DumpConfig": map[string]any{
 			"Restore":         true,
 			"StoreInterval":   123,
@@ -87,11 +90,13 @@ func TestLoadConfig_FileOnly(t *testing.T) {
 	require.True(t, cfg.DumpConfig.Restore)
 	require.EqualValues(t, 123, cfg.DumpConfig.StoreInterval)
 	require.Equal(t, "from-file.json", cfg.DumpConfig.FileStoragePath)
+	require.Equal(t, "127.0.0.0/8", cfg.TrustedSubnet)
 }
 
 func TestLoadConfig_FlagsOverrideFile(t *testing.T) {
 	v := map[string]any{
-		"Address": "127.0.0.1:9999",
+		"Address":       "127.0.0.1:9999",
+		"TrustedSubnet": "10.0.0.0/8",
 		"DumpConfig": map[string]any{
 			"Restore":         true,
 			"StoreInterval":   123,
@@ -105,6 +110,7 @@ func TestLoadConfig_FlagsOverrideFile(t *testing.T) {
 		"-restore=false",
 		"-store-interval=777",
 		"-file-storage-path=flags.json",
+		"-t=192.168.0.0/16",
 	)
 
 	cfg, err := LoadConfig(nil)
@@ -114,11 +120,13 @@ func TestLoadConfig_FlagsOverrideFile(t *testing.T) {
 	require.False(t, cfg.DumpConfig.Restore)
 	require.EqualValues(t, 777, cfg.DumpConfig.StoreInterval)
 	require.Equal(t, "flags.json", cfg.DumpConfig.FileStoragePath)
+	require.Equal(t, "192.168.0.0/16", cfg.TrustedSubnet)
 }
 
 func TestLoadConfig_EnvOverridesAll(t *testing.T) {
 	v := map[string]any{
-		"Address": "127.0.0.1:9999",
+		"Address":       "127.0.0.1:9999",
+		"TrustedSubnet": "10.0.0.0/8",
 		"DumpConfig": map[string]any{
 			"Restore":         false,
 			"StoreInterval":   10,
@@ -132,12 +140,14 @@ func TestLoadConfig_EnvOverridesAll(t *testing.T) {
 		"-restore=false",
 		"-store-interval=777",
 		"-file-storage-path=flags.json",
+		"-trusted_subnet=192.168.0.0/16",
 	)
 
 	t.Setenv("ADDRESS", "env:9090")
 	t.Setenv("RESTORE", "true")
 	t.Setenv("STORE_INTERVAL", "5")
 	t.Setenv("FILE_STORAGE_PATH", "env.json")
+	t.Setenv("TRUSTED_SUBNET", "fd00::/8")
 
 	cfg, err := LoadConfig(nil)
 	require.NoError(t, err)
@@ -146,6 +156,7 @@ func TestLoadConfig_EnvOverridesAll(t *testing.T) {
 	require.True(t, cfg.DumpConfig.Restore)
 	require.EqualValues(t, 5, cfg.DumpConfig.StoreInterval)
 	require.Equal(t, "env.json", cfg.DumpConfig.FileStoragePath)
+	require.Equal(t, "fd00::/8", cfg.TrustedSubnet)
 }
 
 func TestLoadConfig_ConfigPathEnvPreferredOverFlag(t *testing.T) {
@@ -164,4 +175,25 @@ func TestLoadConfig_ConfigPathEnvPreferredOverFlag(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "env-file:8082", cfg.Address)
+}
+
+func TestLoadConfig_TrustedSubnet_FlagOnly_Long(t *testing.T) {
+	prepareConfigEnv(t, "",
+		"-trusted_subnet=10.10.0.0/16",
+	)
+
+	cfg, err := LoadConfig(nil)
+	require.NoError(t, err)
+
+	require.Equal(t, "10.10.0.0/16", cfg.TrustedSubnet)
+}
+
+func TestLoadConfig_TrustedSubnet_EnvOnly(t *testing.T) {
+	prepareConfigEnv(t, "")
+	t.Setenv("TRUSTED_SUBNET", "2001:db8::/32")
+
+	cfg, err := LoadConfig(nil)
+	require.NoError(t, err)
+
+	require.Equal(t, "2001:db8::/32", cfg.TrustedSubnet)
 }

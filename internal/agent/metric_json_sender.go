@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/GoLessons/go-musthave-metrics/internal/common/signature"
@@ -24,8 +25,20 @@ func NewJSONSender(address string, enableGzip bool, signer *signature.Signer, en
 		DisableCompression: true,
 	})
 
+	ip := ""
+	if conn, err := net.Dial("udp", address); err == nil {
+		if la, ok := conn.LocalAddr().(*net.UDPAddr); ok && la.IP != nil {
+			ip = la.IP.String()
+		}
+		_ = conn.Close()
+	}
+	if ip == "" {
+		ip = "127.0.0.1"
+	}
+
 	client.SetBaseURL("http://"+address).
-		SetHeader("Content-Type", "application/json")
+		SetHeader("Content-Type", "application/json").
+		SetHeader("X-Real-IP", ip)
 
 	return &jsonSender{
 		client:     client,

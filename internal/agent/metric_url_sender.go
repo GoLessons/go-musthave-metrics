@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/GoLessons/go-musthave-metrics/internal/model"
 	"resty.dev/v3"
@@ -13,8 +14,21 @@ type urPathSender struct {
 
 func NewMetricURLSender(address string) *urPathSender {
 	client := resty.New()
+
+	ip := ""
+	if conn, err := net.Dial("udp", address); err == nil {
+		if la, ok := conn.LocalAddr().(*net.UDPAddr); ok && la.IP != nil {
+			ip = la.IP.String()
+		}
+		_ = conn.Close()
+	}
+	if ip == "" {
+		ip = "127.0.0.1"
+	}
+
 	client.SetBaseURL("http://"+address).
-		SetHeader("Content-Type", "text/plain")
+		SetHeader("Content-Type", "text/plain").
+		SetHeader("X-Real-IP", ip)
 
 	return &urPathSender{
 		client: client,
